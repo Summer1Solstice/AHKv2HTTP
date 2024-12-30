@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 Persistent
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
-
+; #Include <print>
 class TestServer extends Socket.Server {
 	onACCEPT(err) {
 		this.client := this.AcceptAsClient()
@@ -16,7 +16,11 @@ class TestServer extends Socket.Server {
 					date := FormatTime(, "ddd, d MMM yyyy HH:mm:ss")
 					res.Headers["Date"] := date
 					res.Body := date
-				case "/echo": res.Body := req.Body
+				case "/echo": 
+					req.Body ? "" : res.Body
+					for k, v in req.GETQueryArgs{
+						res.Body .= k "=" v "`n"
+					}
 				default: res.Body := "404 Not Found", res.sc := 404, res.msg := "Not Found"
 			}
 			this.SendText(res.fnLine())
@@ -30,7 +34,7 @@ class HttpRequest {
 		this.Line := {}
 		this.Headers := {}
 		this.Body := ""
-		this.GETQueryArgs := {}
+		this.GETQueryArgs := Map()
 	}
 	fnParse(Request) {
 		this.Request := Request
@@ -55,14 +59,15 @@ class HttpRequest {
 		this.Line.Method := Line[1]
 		this.Line.Url := Line[2]
 		this.Line.HttpVersion := Line[3]
-		if this.Line.Method = "GET" {
-			url := SubStr(this.Line.url, 1, InStr(this.Line.Url, "?") - 1)
-			Queries := SubStr(this.Line.url, InStr(this.Line.Url, "?") + 1)
+		pos := InStr(this.Line.url, "?")
+		if this.Line.Method = "GET" and pos {
+			url := SubStr(this.Line.url, 1, pos - 1)
+			Queries := SubStr(this.Line.url, pos + 1)
 			this.Line.url := url
 			Queries := StrSplit(Queries, "&")
 			for i in Queries {
 				arrQuery := StrSplit(i, "=")
-				this.GETQueryArgs.%arrQuery[1]% := arrQuery[2]
+				this.GETQueryArgs[arrQuery[1]] := arrQuery[2]
 			}
 		}
 	}

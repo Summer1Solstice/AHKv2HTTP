@@ -4,7 +4,8 @@ A crude, rough and makeshift AHKv2 HTTP server.
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)
 2. 只有文本消息传输的功能，不支持文件传输。
 3. 没有刻意注意字符编码，在这方面可能有BUG。
-
+# 已知BUG
+GET请求的查询参数，无法解码但可以用ANSI字符。超出的需要额外处理。
 ## 使用方法
 脚本内演示了基于请求路径的用法。
 ```AutoHotkey
@@ -44,7 +45,7 @@ this.SendText(res.fnLine())
 - `this.Body`，类型为字符串。
 
 **查询参数**
-- `this.GETQueryArgs`，GET请求的查询参数，类型为对象。
+- `this.GETQueryArgs`，GET请求的查询参数，类型为Map。
 
 **原始请求**
 - `this.Request`，使用`socker`的`this.RecvText()`获取到的原始请求。
