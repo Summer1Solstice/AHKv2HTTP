@@ -8,6 +8,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 ## 使用方法
 脚本内演示了基于请求路径的用法。
 ```AutoHotkey
+req.fnParse(this.RecvText())
 switch req.Line.url {
     case "/": res.Body := "这是一个用AHK写的HTTP服务器，非常简陋，功能仅支持传递消息文本，不支持文件传输。"
     case "/hi": res.Body := "Hello World!"
@@ -18,6 +19,7 @@ switch req.Line.url {
     case "/echo": res.Body := req.Body
     default: res.Body := "404 Not Found", res.sc := 404, res.msg := "Not Found"
 }
+this.SendText(res.fnLine())
 ```
 
 ## 类、属性、方法
