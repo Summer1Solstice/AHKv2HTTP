@@ -4,8 +4,14 @@ A crude, rough and makeshift AHKv2 HTTP server.
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)
 2. 只有文本消息传输的功能，不支持文件传输。
 3. 没有刻意注意字符编码，在这方面可能有BUG。
+4. 同时只能处理一个连接。
 # 已知BUG
-GET请求的查询参数，无法解码但可以用ANSI字符。超出的需要额外处理。
+~~GET请求的查询参数，无法解码但可以用ANSI字符。超出的需要额外处理。~~   
+抄大佬的代码，解决了[从这抄的](https://github.com/thqby/ahk2_lib/blob/244adbe197639f03db314905f839fd7b54ce9340/HttpServer.ahk#L473-L484)。  
+有些属性可能会随着使用不断变大，这是因为只在类实例化的时候才初始化。  
+使用的时候，基本都是添加键值的写法，没有清空重新赋值。
+## TODO
+- [ ] 考虑之后重写代码，封闭函数，对属性赋值而不是添加键值。
 ## 使用方法
 脚本内演示了基于请求路径的用法。
 ```AutoHotkey
