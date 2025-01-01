@@ -18,17 +18,40 @@ class TestServer extends Socket.Server {
 					date := FormatTime(, "ddd, d MMM yyyy HH:mm:ss")
 					res.Headers["Date"] := date
 					res.Body := date
-				case "/echo":
-					(res.Body) ? (res.Body "" req.Body) : (req.Body)
-					for k, v in req.GETQueryArgs {
-						res.Body .= k "=" v "`n"
-					}
+				case "/echo": res.Body := "echo: `n" req.Request
 				default: res.Body := "404 Not Found", res.sc := 404, res.msg := "Not Found"
 			}
-			this.SendText(res.fnLine())
+			this.SendText(res.fnGenerate())
+			; DeBug(req, res)
 		}
 	}
 }
 req := HttpRequest()
 res := HttpResponse()
 server := TestServer(10000)
+
+DeBug(req, res) {
+	if req.Headers.Get["Host", 0] {
+		if InStr(req.Headers["Host"], "127.0.0.1") {
+			print "HTTPRequest:"
+			print req.Request
+			print "line:"
+			print req.Line
+			print "headers:"
+			print req.Headers
+			print "body:"
+			print req.Body
+			print "GETQueryArgs:"
+			print req.GETQueryArgs
+			print "`n"
+			print "HttpResponse:"
+			print res.Response
+			print "line:"
+			print res.Line
+			print "headers:"
+			print res.Headers
+			print "body:"
+			print res.Body
+		}
+	}
+}

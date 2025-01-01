@@ -1,3 +1,5 @@
 *
 !*.ahk
 Socket.ahk
+test*.*
+test*/
