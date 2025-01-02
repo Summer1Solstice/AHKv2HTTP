@@ -5,6 +5,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 2. 只有文本消息传输的功能，不支持文件传输。
 3. 没有刻意注意字符编码，在这方面可能有BUG。
 4. 同时只能处理一个连接。
+5. 只有服务端功能，没有客户端功能。
 # 已知BUG
 抄大佬的代码，解决了[从这抄的](https://github.com/thqby/ahk2_lib/blob/244adbe197639f03db314905f839fd7b54ce9340/HttpServer.ahk#L473-L484)。 
 > ~~GET请求的查询参数，无法解码但可以用ANSI字符。超出的需要额外处理。~~   
