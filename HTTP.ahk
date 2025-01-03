@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
  * @date 2025/01/01
- * @version 1.1
+ * @version 1.1.1
  ***********************************************************************/
 ; HTTP请求
 class HttpRequest {
@@ -72,7 +72,7 @@ class HttpResponse {
 		line := Format("{1} {2} {3}", Line, sc, msg)
 		Headers["Content-Length"] := 0
 		if this.Body != "" {
-			this.Headers["Content-Length"] := this.GetStrSize(this.Body)
+			this.Headers["Content-Length"] := GetStrSize(this.Body)
 		}
 		if not Headers.Get("Server", 0)
 			Headers["Server"] := "AutoHotkey/" A_AhkVersion
@@ -86,10 +86,10 @@ class HttpResponse {
 		}
 		return this.Response := Response
 	}
-	GetStrSize(str, encoding := "UTF-8") {
-		; https://github.com/zhamlin/AHKhttp/blob/c6267f67d4a3145c352c281bb58e610bcf9e9d77/AHKhttp.ahk#L323-L327
-		encodingSize := ((encoding = "utf-16" || encoding = "cp1200") ? 2 : 1)
-		; length of string, minus null char
-		return StrPut(str, encoding) * encodingSize - encodingSize
-	}
+}
+GetStrSize(str, encoding := "UTF-8") {
+	; https://github.com/zhamlin/AHKhttp/blob/c6267f67d4a3145c352c281bb58e610bcf9e9d77/AHKhttp.ahk#L323-L327
+	encodingSize := ((encoding = "utf-16" || encoding = "cp1200") ? 2 : 1)
+	; length of string, minus null char
+	return StrPut(str, encoding) * encodingSize - encodingSize
 }

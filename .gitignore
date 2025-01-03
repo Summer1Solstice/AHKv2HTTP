@@ -3,3 +3,5 @@
 Socket.ahk
 test*.*
 test*/
+debug*.*
+debug*/

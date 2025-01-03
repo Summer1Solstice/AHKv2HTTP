@@ -1,9 +1,8 @@
 #Requires AutoHotkey v2.0
-
 Persistent
 #Include Socket.ahk ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 #Include HTTP.ahk
-; #Include <print>
+
 class TestServer extends Socket.Server {
 	onACCEPT(err) {
 		this.client := this.AcceptAsClient()
@@ -30,28 +29,7 @@ req := HttpRequest()
 res := HttpResponse()
 server := TestServer(10000)
 
-DeBug(req, res) {
-	if req.Headers.Get["Host", 0] {
-		if InStr(req.Headers["Host"], "127.0.0.1") {
-			print "HTTPRequest:"
-			print req.Request
-			print "line:"
-			print req.Line
-			print "headers:"
-			print req.Headers
-			print "body:"
-			print req.Body
-			print "GETQueryArgs:"
-			print req.GETQueryArgs
-			print "`n"
-			print "HttpResponse:"
-			print res.Response
-			print "line:"
-			print res.Line
-			print "headers:"
-			print res.Headers
-			print "body:"
-			print res.Body
-		}
-	}
-}
+; client := Socket.client("127.0.0.1", 10000)
+; client.SendText("GET / HTTP/1.1`r`nContent-Length: 0`r`n`r`n")
+; OutputDebug client.RecvText()
+
