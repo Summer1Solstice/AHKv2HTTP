@@ -1,5 +1,7 @@
-*
+*.*
 !*.ahk
+!LICENSE
+!README.md
 Socket.ahk
 test*.*
 test*/

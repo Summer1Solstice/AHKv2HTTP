@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 ; Socket.Ahk 的最小工作示例 
-#Include Socket.ahk
+#Include <Socket>
 class TestServer extends Socket.Server {
 	onACCEPT(err) {
 		this.client := this.AcceptAsClient()
