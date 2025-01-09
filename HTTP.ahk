@@ -33,6 +33,12 @@ class HTTP {
         return MessageMap
     }
     static GenerateMessage(Elements) {
+        if Type(Elements) != "Map"
+            throw TypeError()
+        if !Elements.Has("line") or !Elements.Has("headers") or !Elements.Has("boby")
+            throw UnsetError()
+        if Type(Elements["line"]) != "Map" or Type(Elements["headers"]) != "Map" or Type(Elements["boby"]) != "String"
+            throw TypeError()
         msg := ""
         line := Format("{1} {2} {3}", Elements["line"]*)
         headers := ""
@@ -80,6 +86,7 @@ class Request extends HTTP {
         }
     }
     Generate(Method := this.Line.Method, Url := this.Line.Url, Headers := this.Headers, Body := this.Body) {
+        Method := StrUpper(Method)
         if Method = "GET" and this.GETQueryArgs.Count > 0 {
             Url .= "?"
             for k, v in this.GETQueryArgs {
