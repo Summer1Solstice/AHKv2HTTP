@@ -5,11 +5,13 @@
  ***********************************************************************/
 class HTTP {
     ; https://github.com/zhamlin/AHKhttp/blob/c6267f67d4a3145c352c281bb58e610bcf9e9d77/AHKhttp.ahk#L323-L327
+    ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
         encodingSize := ((encoding = "utf-16" || encoding = "cp1200") ? 2 : 1)
         return StrPut(str, encoding) * encodingSize - encodingSize
     }
     ; https://github.com/thqby/ahk2_lib/blob/master/UrlEncode.ahk
+    ; URL编码
     static UrlEncode(url, component := false) {
         flag := component ? 0xc2000 : 0xc0000
         DllCall('shlwapi\UrlEscape', 'str', url, 'ptr*', 0, 'uint*', &len := 1, 'uint', flag)
@@ -17,27 +19,30 @@ class HTTP {
         return StrGet(buf)
     }
     ; https://github.com/thqby/ahk2_lib/blob/244adbe197639f03db314905f839fd7b54ce9340/HttpServer.ahk#L473-L484
+    ; URL解码
     static UrlUnescape(i) {
         DllCall('shlwapi\UrlUnescape', 'str', i, 'ptr', 0, 'uint*', 0, 'uint', 0x140000)
         return i
     }
+    ; 消息解析
     static ParseMessage(msg) {
         MessageMap := Map()
         LineEndPos := InStr(msg, "`r`n")
-        BobyStartPos := InStr(msg, "`r`n`r`n")
+        BodyStartPos := InStr(msg, "`r`n`r`n")
         MessageMap["line"] := StrSplit(SubStr(msg, 1, LineEndPos - 1), A_Space)
         MessageMap["headers"] := Map()
-        Headers := StrSplit(SubStr(msg, LineEndPos + 3, BobyStartPos - LineEndPos - 3), ["`r`n", ": "])
+        Headers := StrSplit(SubStr(msg, LineEndPos + 3, BodyStartPos - LineEndPos - 3), ["`r`n", ": "])
         MessageMap["headers"].Set(Headers*)
-        MessageMap["boby"] := SubStr(msg, BobyStartPos + 4)
+        MessageMap["body"] := SubStr(msg, BodyStartPos + 4)
         return MessageMap
     }
+    ; 消息拼装
     static GenerateMessage(Elements) {
         if Type(Elements) != "Map"
             throw TypeError()
-        if !Elements.Has("line") or !Elements.Has("headers") or !Elements.Has("boby")
+        if !Elements.Has("line") or !Elements.Has("headers") or !Elements.Has("body")
             throw UnsetError()
-        if Type(Elements["line"]) != "Map" or Type(Elements["headers"]) != "Map" or Type(Elements["boby"]) != "String"
+        if Type(Elements["line"]) != "Array" or Type(Elements["headers"]) != "Map" or Type(Elements["body"]) != "String"
             throw TypeError()
         msg := ""
         line := Format("{1} {2} {3}", Elements["line"]*)
@@ -82,7 +87,6 @@ class Request extends HTTP {
                 }
             }
             this.GETQueryArgs.Set(QueryArgs*)
-            print this.GETQueryArgs
         }
     }
     Generate(Method := this.Line.Method, Url := this.Line.Url, Headers := this.Headers, Body := this.Body) {
@@ -134,6 +138,10 @@ class Server {
         this.req.Parse(msg)
         if this.path.Has(this.req.Line.Url) {
             this.path[this.req.Line.Url](this.req, this.res)
+        } else {
+            this.res.sCode := 404
+            this.res.sMsg := "Not Found"
+            this.res.Body := "404 Not Found"
         }
     }
     GenerateResponse() {
@@ -145,7 +153,7 @@ class Server {
     }
 }
 ; class Client {
-    
+
 ; }
 
 #Include <print>
