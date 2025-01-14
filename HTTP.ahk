@@ -3,6 +3,7 @@
  * @date 2025/01/05
  * @version 2.0
  ***********************************************************************/
+#Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 class HTTP {
     ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
@@ -42,19 +43,35 @@ class HTTP {
             throw TypeError()
         if !Elements.Has("line") or !Elements.Has("headers") or !Elements.Has("body")
             throw UnsetError()
-        if Type(Elements["line"]) != "Array" or Type(Elements["headers"]) != "Map" or Type(Elements["body"]) != "String"
+        if Type(Elements["line"]) != "Array" or Type(Elements["headers"]) != "Map"
             throw TypeError()
         msg := ""
         line := Format("{1} {2} {3}", Elements["line"]*)
         headers := ""
-        Elements["headers"].Has("Content-Length")
-            ? Elements["headers"]["Content-Length"] := Elements["headers"]["Content-Length"]
-            : Elements["headers"]["Content-Length"] := HTTP.GetStrSize(Elements["body"])
-        Elements["headers"]["Server"] := "AutoHotkey/" A_AhkVersion
+
         for k, v in Elements["headers"] {
             headers .= Format("{1}: {2}`r`n", k, v)
         }
-        return Format("{1}`r`n{2}`r`n{3}", line, headers, Elements["body"])
+        if Type(Elements["body"]) = "Buffer" {
+            msg := Format("{1}`r`n{2}`r`n", line, headers)
+        } else {
+            msg := Format("{1}`r`n{2}`r`n{3}", line, headers, Elements["body"])
+        }
+        return msg
+    }
+    static LoadMimes(File) {
+        FileConent := FileRead(File)
+        MimeType := Map()
+        MimeType.CaseSense := false
+        for i in StrSplit(FileConent, "`n") {
+            Types := SubStr(i, 1, InStr(i, A_Space) - 1)
+            i := StrReplace(i, Types)
+            i := LTrim(i)
+            for i in StrSplit(i, A_Space) {
+                MimeType[i] := Types
+            }
+        }
+        return MimeType
     }
 }
 ; 请求类
@@ -129,33 +146,84 @@ class Response extends HTTP {
     ; 生成响应
     Generate(sCode := this.sCode, sMsg := this.sMsg, Headers := this.Headers, Body := this.Body) {
         Line := this.Line
+
+        if not Headers.Has("Content-Length") {
+            if Type(Body) = "Buffer" {
+                Headers["Content-Length"] := Body.size
+            }
+            if not IsObject(Body) {
+                Headers["Content-Length"] := HTTP.GetStrSize(Body)
+            }
+        }
+        Headers["Content-Length"] := Headers["Content-Length"]
+        if not Headers.Has("Content-Type") {
+            Headers["Content-Type"] := "text/plain"
+        }
+        Headers["Server"] := "AutoHotkey/" A_AhkVersion
+
         this.Response := ResMap := Map("line", [Line, sCode, sMsg], "headers", Headers, "body", Body)
         return HTTP.GenerateMessage(ResMap)
     }
 }
-class Server {
-    __New(path) {
-        this.path := path
-    }
+class HttpServer extends Socket.Server {
+    Path := Map()
     req := Request()
     res := Response()
+    MimeFile {
+        get {
+            return this.mime_type
+        }
+        set {
+            this.MimeType := HTTP.LoadMimes(Value)
+        }
+    }
+    onACCEPT(err) {
+        this.client := this.AcceptAsClient()
+        this.client.onREAD := onread
+        onread(SocketServer, err) {
+            this.ParseRequest(SocketServer.RecvText())
+            this.GenerateResponse(SocketServer)
+        }
+    }
     ; 解析请求
     ParseRequest(msg) {
         this.req.Parse(msg)
-        if this.path.Has(this.req.Line.Url) {
-            this.path[this.req.Line.Url](this.req, this.res)
+        if this.Path.Has(this.req.Line.Url) {
+            this.res.__New()
+            this.Path[this.req.Line.Url](this.req, this.res)
+        } else {
+            this.res.sCode := 404
+            this.res.sMsg := "Not Found"
+            this.res.Body := "404 Not Found"
         }
     }
+    SetBodyText(str) {
+        this.res.Headers["Content-Length"] := HTTP.GetStrSize(str)
+        this.res.Headers["Content-Type"] := "text/plain"
+        this.res.Body := str
+    }
+    SetBodyFile(file) {
+        if !FileExist(file)
+            return false
+        buffobj := FileRead(file, "Raw")
+        this.res.Headers["Content-Length"] := buffobj.size
+        SplitPath(file, , , &ext)
+        this.MimeType.Has(ext)
+            ? this.res.Headers["Content-Type"] := this.MimeType[ext]
+            : this.res.Headers["Content-Type"] := "text/plain"
+        this.res.Body := buffobj
+    }
     ; 生成响应
-    GenerateResponse() {
+    GenerateResponse(Socket) {
         if this.req.Line.Method = "HEAD" {
-            this.res.Headers["Content-Length"] := HTTP.GetStrSize(this.res.Body)
             this.res.Body := ""
         }
-        if this.path.Has(this.req.Line.Url) {
-            return this.res.Generate()
+        if Type(this.res.Body) = "Buffer" {
+            this.res.Headers["Content-Length"] := this.res.Body.size
+            Socket.SendText(this.res.Generate())
+            Socket.Send(this.res.Body)
         } else {
-            return this.res.Generate(404, "Not Found", unset, "404 Not Found")
+            Socket.SendText(this.res.Generate())
         }
     }
 }
