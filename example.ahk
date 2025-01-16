@@ -3,16 +3,26 @@ Persistent
 #Include HTTP.ahk
 
 path := Map()
+path["/"] := root
 path["/logo"] := logo
-path["/hi"] := hi
-hi(req, res) {
-	res.Body := "这是一个用AHK写的HTTP服务器，非常简陋，功能仅支持传递消息文本，不支持文件传输。"
+path["/debug"] := debug
+
+Server := HttpServer(10000)
+Server.Path := path
+Server.MimeFile := "mime.types"
+
+root(req, res) {
+	res.Body := "Hello World!"
 	res.sCode := 200
 	res.sMsg := "OK"
 }
 logo(req, res) {
-	Server.SetBodyFile("test.ahk")
+	Server.SetBodyFile("logo.png")
 }
-Server := HttpServer(10000)
-Server.Path := path
-Server.MimeFile := "mime.types"
+debug(req, res) {
+	body := ""
+	for k, v in req.GetQueryArgs {
+		body .= k "=" v
+	}
+	res.Body := body
+}

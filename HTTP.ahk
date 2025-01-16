@@ -84,7 +84,7 @@ class Request extends HTTP {
         this.Line.Protocol := "HTTP/1.1"
         this.Headers := Map()
         this.Body := ""
-        this.GETQueryArgs := Map()
+        this.GetQueryArgs := Map()
     }
     ; 解析请求
     Parse(ReqMsg) {
@@ -98,29 +98,29 @@ class Request extends HTTP {
         if Method = "GET" and InStr(Url, "?") {
             pos := InStr(Url, "?")
             QueryArgs := SubStr(Url, pos + 1)
-            this.Line.url := SubStr(Url, 1, pos - 1)
+            this.Line.Url := SubStr(Url, 1, pos - 1)
             QueryArgs := StrSplit(QueryArgs, ["&", "="])
             for i in QueryArgs {
                 if InStr(i, "%") {
                     QueryArgs[A_Index] := HTTP.UrlUnescape(i)
                 }
             }
-            this.GETQueryArgs.Set(QueryArgs*)
+            this.GetQueryArgs := temp := Map(QueryArgs*)
         }
     }
     ; 生成请求
     Generate(Method := this.Line.Method, Url := this.Line.Url, Headers := this.Headers, Body := this.Body) {
         Method := StrUpper(Method)
-        if Method = "GET" and this.GETQueryArgs.Count > 0 {
+        if Method = "GET" and this.GetQueryArgs.Count > 0 {
             Url .= "?"
-            for k, v in this.GETQueryArgs {
+            for k, v in this.GetQueryArgs {
                 k := HTTP.UrlEncode(k)
                 v := HTTP.UrlEncode(v)
-                Url .= (A_Index < this.GETQueryArgs.Count) ? k "=" v "&" : k "=" v
+                Url .= (A_Index < this.GetQueryArgs.Count) ? k "=" v "&" : k "=" v
             }
         }
-        this.Request := ReqMap := Map("line", [Method, Url, this.Line.Protocol], "headers", Headers, "body", Body)
-        return HTTP.GenerateMessage(ReqMap)
+        ReqMap := Map("line", [Method, Url, this.Line.Protocol], "headers", Headers, "body", Body)
+        return this.Request := HTTP.GenerateMessage(ReqMap)
     }
 }
 ; 响应类
@@ -161,8 +161,8 @@ class Response extends HTTP {
         }
         Headers["Server"] := "AutoHotkey/" A_AhkVersion
 
-        this.Response := ResMap := Map("line", [Line, sCode, sMsg], "headers", Headers, "body", Body)
-        return HTTP.GenerateMessage(ResMap)
+        ResMap := Map("line", [Line, sCode, sMsg], "headers", Headers, "body", Body)
+        return this.Response := HTTP.GenerateMessage(ResMap)
     }
 }
 class HttpServer extends Socket.Server {
@@ -224,6 +224,10 @@ class HttpServer extends Socket.Server {
             Socket.Send(this.res.Body)
         } else {
             Socket.SendText(this.res.Generate())
+        }
+        if this.req.Line.Url = "/debug"{
+            OutputDebug this.req.Request
+            OutputDebug this.res.Response
         }
     }
 }
