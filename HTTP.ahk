@@ -169,13 +169,16 @@ class HttpServer extends Socket.Server {
     Path := Map()
     req := Request()
     res := Response()
-    MimeFile {
-        get {
-            return this.mime_type
+    SetMimeType(file){
+        if not FileExist(file) {
+            throw TargetError
         }
-        set {
-            this.MimeType := HTTP.LoadMimes(Value)
-        }
+        this.MimeType := HTTP.LoadMimes(file)
+    }
+    SetPaths(paths) {
+        if not Type(paths) = "Map"
+            throw TypeError()
+        this.Path := paths
     }
     onACCEPT(err) {
         this.client := this.AcceptAsClient()

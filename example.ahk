@@ -8,8 +8,8 @@ path["/logo"] := logo
 path["/debug"] := debug
 
 Server := HttpServer(10000)
-Server.Path := path
-Server.MimeFile := "mime.types"
+Server.SetPaths(path)
+Server.SetMimeType("mime.types")
 
 root(req, res) {
 	res.Body := "Hello World!"
