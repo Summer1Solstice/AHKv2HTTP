@@ -167,6 +167,7 @@ class Response extends HTTP {
 }
 class HttpServer extends Socket.Server {
     Path := Map()
+    MimeType := Map()
     req := Request()
     res := Response()
     SetMimeType(file){
