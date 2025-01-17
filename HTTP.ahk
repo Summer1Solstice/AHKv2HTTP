@@ -78,10 +78,9 @@ class HTTP {
 class Request extends HTTP {
     __New() {
         this.Request := ""
-        this.Line := {}
-        this.Line.Method := ""
-        this.Line.Url := ""
-        this.Line.Protocol := "HTTP/1.1"
+        this.Method := ""
+        this.Url := ""
+        this.Protocol := "HTTP/1.1"
         this.Headers := Map()
         this.Body := ""
         this.GetQueryArgs := Map()
@@ -90,15 +89,15 @@ class Request extends HTTP {
     Parse(ReqMsg) {
         this.Request := ReqMsg
         MessageMap := HTTP.ParseMessage(ReqMsg)
-        this.Line.Method := Method := MessageMap["line"][1]
-        this.Line.Url := Url := MessageMap["line"][2]
-        this.Line.Protocol := MessageMap["line"][3]
+        this.Method := Method := MessageMap["line"][1]
+        this.Url := Url := MessageMap["line"][2]
+        this.Protocol := MessageMap["line"][3]
         this.Headers := MessageMap["headers"]
         this.Body := MessageMap.Get("body", "")
         if Method = "GET" and InStr(Url, "?") {
             pos := InStr(Url, "?")
             QueryArgs := SubStr(Url, pos + 1)
-            this.Line.Url := SubStr(Url, 1, pos - 1)
+            this.Url := SubStr(Url, 1, pos - 1)
             QueryArgs := StrSplit(QueryArgs, ["&", "="])
             for i in QueryArgs {
                 if InStr(i, "%") {
@@ -109,7 +108,7 @@ class Request extends HTTP {
         }
     }
     ; 生成请求
-    Generate(Method := this.Line.Method, Url := this.Line.Url, Headers := this.Headers, Body := this.Body) {
+    Generate(Method := this.Method, Url := this.Url, Headers := this.Headers, Body := this.Body) {
         Method := StrUpper(Method)
         if Method = "GET" and this.GetQueryArgs.Count > 0 {
             Url .= "?"
@@ -119,7 +118,7 @@ class Request extends HTTP {
                 Url .= (A_Index < this.GetQueryArgs.Count) ? k "=" v "&" : k "=" v
             }
         }
-        ReqMap := Map("line", [Method, Url, this.Line.Protocol], "headers", Headers, "body", Body)
+        ReqMap := Map("line", [Method, Url, this.Protocol], "headers", Headers, "body", Body)
         return this.Request := HTTP.GenerateMessage(ReqMap)
     }
 }
@@ -192,9 +191,9 @@ class HttpServer extends Socket.Server {
     ; 解析请求
     ParseRequest(msg) {
         this.req.Parse(msg)
-        if this.Path.Has(this.req.Line.Url) {
+        if this.Path.Has(this.req.Url) {
             this.res.__New()
-            this.Path[this.req.Line.Url](this.req, this.res)
+            this.Path[this.req.Url](this.req, this.res)
         } else {
             this.res.sCode := 404
             this.res.sMsg := "Not Found"
@@ -219,7 +218,7 @@ class HttpServer extends Socket.Server {
     }
     ; 生成响应
     GenerateResponse(Socket) {
-        if this.req.Line.Method = "HEAD" {
+        if this.req.Method = "HEAD" {
             this.res.Body := ""
         }
         if Type(this.res.Body) = "Buffer" {
@@ -229,7 +228,7 @@ class HttpServer extends Socket.Server {
         } else {
             Socket.SendText(this.res.Generate())
         }
-        if this.req.Line.Url = "/debug"{
+        if this.req.Url = "/debug"{
             OutputDebug this.req.Request
             OutputDebug this.res.Response
         }
