@@ -58,11 +58,16 @@ class HTTP {
         }
         return msg
     }
-    static LoadMimes(File) {
-        FileConent := FileRead(File)
+    static LoadMimes(File) {    ;考虑优化为JSON
+        FileConent := FileRead(File, "`n")
         MimeType := Map()
         MimeType.CaseSense := false
         for i in StrSplit(FileConent, "`n") {
+            if InStr(i, ": "){
+                temp := StrSplit(i, ": ")
+                MimeType.Set(temp*)
+                continue
+            }
             Types := SubStr(i, 1, InStr(i, A_Space) - 1)
             i := StrReplace(i, Types)
             i := LTrim(i)
