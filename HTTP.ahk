@@ -7,9 +7,8 @@
 class HTTP {
     ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
-        ; https://github.com/zhamlin/AHKhttp/blob/c6267f67d4a3145c352c281bb58e610bcf9e9d77/AHKhttp.ahk#L323-L327
-        encodingSize := ((encoding = "utf-16" || encoding = "cp1200") ? 2 : 1)
-        return StrPut(str, encoding) * encodingSize - encodingSize
+        NullLength := (encoding = "UTF-16" or encoding = "CP1200") ? 2 : 1
+        return StrPut(str, encoding) - NullLength
     }
     ; URL编码
     static UrlEncode(url, component := false) {
