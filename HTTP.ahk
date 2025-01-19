@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
  * @date 2025/01/19
- * @version 2.11
+ * @version 2.12
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 ;@region HTTP
@@ -166,7 +166,7 @@ class Response extends HTTP {
             Headers["Content-Type"] := "text/plain"
         }
         Headers["Server"] := "AutoHotkey/" A_AhkVersion
-
+        Headers["Date"] := FormatTime("L0x0409","ddd, d MMM yyyy HH:mm:ss")
         ResMap := Map("line", [Line, sCode, sMsg], "headers", Headers, "body", Body)
         return this.Response := HTTP.GenerateMessage(ResMap)
     }
