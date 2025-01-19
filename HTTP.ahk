@@ -1,9 +1,10 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/01/05
- * @version 2.0
+ * @date 2025/01/19
+ * @version 2.11
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
+;@region HTTP
 class HTTP {
     ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
@@ -80,6 +81,7 @@ class HTTP {
     }
 }
 ; 请求类
+;@region Request
 class Request extends HTTP {
     __New() {
         this.Request := ""
@@ -128,6 +130,7 @@ class Request extends HTTP {
     }
 }
 ; 响应类
+;@region Response
 class Response extends HTTP {
     __New() {
         this.Response := ""
@@ -159,7 +162,6 @@ class Response extends HTTP {
                 Headers["Content-Length"] := HTTP.GetStrSize(Body)
             }
         }
-        Headers["Content-Length"] := Headers["Content-Length"]
         if not Headers.Has("Content-Type") {
             Headers["Content-Type"] := "text/plain"
         }
@@ -169,6 +171,7 @@ class Response extends HTTP {
         return this.Response := HTTP.GenerateMessage(ResMap)
     }
 }
+;@region HttpServer
 class HttpServer extends Socket.Server {
     Path := Map()
     MimeType := Map()
@@ -193,7 +196,7 @@ class HttpServer extends Socket.Server {
             this.GenerateResponse(SocketServer)
         }
     }
-    ; 解析请求
+    ; 解析客户端请求
     ParseRequest(msg) {
         this.req.Parse(msg)
         if this.Path.Has(this.req.Url) {
@@ -207,7 +210,8 @@ class HttpServer extends Socket.Server {
     }
     SetBodyText(str) {
         this.res.Headers["Content-Length"] := HTTP.GetStrSize(str)
-        this.res.Headers["Content-Type"] := "text/plain"
+        if not this.res.Headers.Has("Content-Type")
+            this.res.Headers["Content-Type"] := "text/plain"
         this.res.Body := str
     }
     SetBodyFile(file) {
@@ -221,19 +225,23 @@ class HttpServer extends Socket.Server {
             : this.res.Headers["Content-Type"] := "text/plain"
         this.res.Body := buffobj
     }
-    ; 生成响应
+    ; 生成服务端响应
     GenerateResponse(Socket) {
         if this.req.Method = "HEAD" {
             this.res.Body := ""
+        } else if this.req.Method = "TRACE" {
+            this.SetBodyText(this.req.Request)
+        } else if this.req.Method = "OPTIONS" {
+            temp := Map("Allow", "GET,POST,HEAD,TRACE,OPTIONS")
+            this.res.Headers := temp
         }
         if Type(this.res.Body) = "Buffer" {
-            this.res.Headers["Content-Length"] := this.res.Body.size
             Socket.SendText(this.res.Generate())
             Socket.Send(this.res.Body)
         } else {
             Socket.SendText(this.res.Generate())
         }
-        if this.req.Url = "/debug" {
+        if this.req.Url = "/debug" or this.req.Method = "TRACE"{
             OutputDebug this.req.Request
             OutputDebug this.res.Response
         }
