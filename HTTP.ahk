@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
  * @date 2025/01/19
- * @version 2.12
+ * @version 2.13
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 ;@region HTTP
@@ -232,8 +232,7 @@ class HttpServer extends Socket.Server {
         } else if this.req.Method = "TRACE" {
             this.SetBodyText(this.req.Request)
         } else if this.req.Method = "OPTIONS" {
-            temp := Map("Allow", "GET,POST,HEAD,TRACE,OPTIONS")
-            this.res.Headers := temp
+            this.res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
         }
         if Type(this.res.Body) = "Buffer" {
             Socket.SendText(this.res.Generate())
