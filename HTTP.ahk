@@ -7,8 +7,7 @@
 class HTTP {
     ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
-        NullLength := (encoding = "UTF-16" or encoding = "CP1200") ? 2 : 1
-        return StrPut(str, encoding) - NullLength
+        return StrPut(str, encoding) - ((encoding = "UTF-16" or encoding = "CP1200") ? 2 : 1)
     }
     ; URL编码
     static UrlEncode(url, component := false) {
@@ -62,17 +61,19 @@ class HTTP {
         FileConent := FileRead(File, "`n")
         MimeType := Map()
         MimeType.CaseSense := false
-        for i in StrSplit(FileConent, "`n") {
-            if InStr(i, ": "){
-                temp := StrSplit(i, ": ")
-                MimeType.Set(temp*)
-                continue
+        if InStr(FileConent, ": ") {
+            for i in StrSplit(FileConent, "`n") {
+                i := StrSplit(i, ": ")
+                MimeType.Set(i*)
             }
-            Types := SubStr(i, 1, InStr(i, A_Space) - 1)
-            i := StrReplace(i, Types)
-            i := LTrim(i)
-            for i in StrSplit(i, A_Space) {
-                MimeType[i] := Types
+        } else {
+            for i in StrSplit(FileConent, "`n") {
+                Types := SubStr(i, 1, InStr(i, A_Space) - 1)
+                i := StrReplace(i, Types)
+                i := LTrim(i)
+                for i in StrSplit(i, A_Space) {
+                    MimeType[i] := Types
+                }
             }
         }
         return MimeType
@@ -173,7 +174,7 @@ class HttpServer extends Socket.Server {
     MimeType := Map()
     req := Request()
     res := Response()
-    SetMimeType(file){
+    SetMimeType(file) {
         if not FileExist(file) {
             throw TargetError
         }
@@ -232,7 +233,7 @@ class HttpServer extends Socket.Server {
         } else {
             Socket.SendText(this.res.Generate())
         }
-        if this.req.Url = "/debug"{
+        if this.req.Url = "/debug" {
             OutputDebug this.req.Request
             OutputDebug this.res.Response
         }
