@@ -11,7 +11,11 @@ A crude, rough and makeshift AHKv2 HTTP server.
 # 使用方法
 实例化类`HttpServer`，同时传入端口号。  
 调用类实例方法`SetPaths`传入URL路径对应的处理函数，变量类型`Map`。  
-调用类实例方法`SetMimeType`传入`mime.types`，应该传入文件路径。  
+调用类实例方法`SetMimeType`传入如下格式的文件的路径。
+```
+html: text/html
+jpg: image/jpeg
+```
 调用类实例方法`SetBodyText`发送文本，传入字符串。  
 调用类实例方法`SetBodyFile`发送文件，传入文件路径。  
 当URL路径被访问时调用`paths`中相应的处理函数。  
