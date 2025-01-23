@@ -1,17 +1,13 @@
 # AHKv2HTTP
 A crude, rough and makeshift AHKv2 HTTP server.
-# 注意
+# 注意事项与已知缺陷
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)
-2. 只有文本消息传输的功能。
+2. 只能发送文件，不能接受文件。
 3. 没有刻意注意字符编码，在这方面可能有BUG。
-4. 同时只能处理一个连接。
-5. 没有考虑错误处理。  
-6. 不适合复杂需求，如：分块传输等。
-# TODO
-- [x] 请求方法全部转大写
-- [ ] 添加错误处理
-- [ ] 类型验证
-- [ ] URL编码调用DLL部分，需要优化。
+4. 同时最好只有一个连接，没有针对多连接的处理。
+5. 没有错误处理逻辑，出错时可能需要重启脚本。
+6. 不支持复杂的HTTP协议机制，如：分块传输。
+
 # 使用方法
 实例化类`HttpServer`，同时传入端口号。  
 调用类实例方法`SetPaths`传入URL路径对应的处理函数，变量类型`Map`。  
@@ -40,5 +36,3 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | sMsg | 响应消息 | String |
 | Headers | 响应头 | Map |
 | Body | 响应体 | String |
-# 其他
-旧版本，仅实现服务端功能，本体和示例在 old 文件夹中。

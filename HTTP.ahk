@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/01/19
- * @version 2.13
+ * @date 2025/01/23
+ * @version 2.14
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 ;@region HTTP
@@ -9,6 +9,13 @@ class HTTP {
     ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
         return StrPut(str, encoding) - ((encoding = "UTF-16" or encoding = "CP1200") ? 2 : 1)
+    }
+    static GetBodySize(Body) {
+        if Type(Body) = "Buffer" {
+            return Body.size
+        } else {
+            return HTTP.GetStrSize(Body)
+        }
     }
     ; URL编码
     static UrlEncode(url, component := false) {
@@ -155,18 +162,13 @@ class Response extends HTTP {
         Line := this.Line
 
         if not Headers.Has("Content-Length") {
-            if Type(Body) = "Buffer" {
-                Headers["Content-Length"] := Body.size
-            }
-            if not IsObject(Body) {
-                Headers["Content-Length"] := HTTP.GetStrSize(Body)
-            }
+            Headers["Content-Length"] := HTTP.GetBodySize(Body)
         }
         if not Headers.Has("Content-Type") {
             Headers["Content-Type"] := "text/plain"
         }
         Headers["Server"] := "AutoHotkey/" A_AhkVersion
-        Headers["Date"] := FormatTime("L0x0409","ddd, d MMM yyyy HH:mm:ss")
+        Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
         ResMap := Map("line", [Line, sCode, sMsg], "headers", Headers, "body", Body)
         return this.Response := HTTP.GenerateMessage(ResMap)
     }
@@ -188,26 +190,6 @@ class HttpServer extends Socket.Server {
             throw TypeError()
         this.Path := paths
     }
-    onACCEPT(err) {
-        this.client := this.AcceptAsClient()
-        this.client.onREAD := onread
-        onread(SocketServer, err) {
-            this.ParseRequest(SocketServer.RecvText())
-            this.GenerateResponse(SocketServer)
-        }
-    }
-    ; 解析客户端请求
-    ParseRequest(msg) {
-        this.req.Parse(msg)
-        if this.Path.Has(this.req.Url) {
-            this.res.__New()
-            this.Path[this.req.Url](this.req, this.res)
-        } else {
-            this.res.sCode := 404
-            this.res.sMsg := "Not Found"
-            this.res.Body := "404 Not Found"
-        }
-    }
     SetBodyText(str) {
         this.res.Headers["Content-Length"] := HTTP.GetStrSize(str)
         if not this.res.Headers.Has("Content-Type")
@@ -225,6 +207,27 @@ class HttpServer extends Socket.Server {
             : this.res.Headers["Content-Type"] := "text/plain"
         this.res.Body := buffobj
     }
+    onACCEPT(err) {
+        this.client := this.AcceptAsClient()
+        this.client.onREAD := onread
+        onread(Socket, err) {
+            this.ParseRequest(Socket)
+        }
+    }
+    ; 解析客户端请求
+    ParseRequest(Socket) {
+        this.req.Parse(Socket.RecvText())
+        if this.Path.Has(this.req.Url) {
+            this.res.__New()
+            this.Path[this.req.Url](this.req, this.res)
+        } else {
+            this.res.sCode := 404
+            this.res.sMsg := "Not Found"
+            this.res.Body := "404 Not Found"
+        }
+        this.GenerateResponse(Socket)
+    }
+
     ; 生成服务端响应
     GenerateResponse(Socket) {
         if this.req.Method = "HEAD" {
@@ -240,7 +243,7 @@ class HttpServer extends Socket.Server {
         } else {
             Socket.SendText(this.res.Generate())
         }
-        if this.req.Url = "/debug" or this.req.Method = "TRACE"{
+        if this.req.Url = "/debug" or this.req.Method = "TRACE" {
             OutputDebug this.req.Request
             OutputDebug this.res.Response
         }
