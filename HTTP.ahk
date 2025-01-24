@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/01/23
- * @version 2.14
+ * @date 2025/01/24
+ * @version 2.15
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 ;@region HTTP
