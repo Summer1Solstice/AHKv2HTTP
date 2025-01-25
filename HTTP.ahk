@@ -211,8 +211,15 @@ class HttpServer extends Socket.Server {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
         onread(Socket, err) {
-            this.ParseRequest(Socket)
+            if Socket.MsgSize() {
+                this.ParseRequest(Socket)
+            }
         }
+        ; this.client.onCLOSE := onclose
+        ; onclose(Socket, err) {
+        ;     ; this.req.__New()
+        ;     ; this.res.__New()
+        ; }
     }
     ; 解析客户端请求
     ParseRequest(Socket) {
@@ -245,6 +252,7 @@ class HttpServer extends Socket.Server {
         }
         if this.req.Url = "/debug" or this.req.Method = "TRACE" {
             OutputDebug this.req.Request
+            OutputDebug "`n"
             OutputDebug this.res.Response
         }
     }
