@@ -8,6 +8,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 5. 没有错误处理逻辑，出错时可能需要重启脚本。
 6. 不支持复杂的HTTP协议机制，如：分块传输。
 
+放弃文件接收和分块传输功能，写不出代码。
 # 使用方法
 实例化类`HttpServer`，同时传入端口号。  
 调用类实例方法`SetPaths`传入URL路径对应的处理函数，变量类型`Map`。  
