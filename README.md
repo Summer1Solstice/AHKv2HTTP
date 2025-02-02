@@ -2,7 +2,7 @@
 A crude, rough and makeshift AHKv2 HTTP server.
 # 注意事项与已知缺陷
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)
-2. 只能发送文件，不能接受文件。
+2. 只能发送文件，不能接收文件。
 3. 没有刻意注意字符编码，在这方面可能有BUG。
 4. 同时最好只有一个连接，没有针对多连接的处理。
 5. 没有错误处理逻辑，出错时可能需要重启脚本。
