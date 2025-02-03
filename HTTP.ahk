@@ -101,24 +101,32 @@ class Request extends HTTP {
     }
     ; 解析请求
     Parse(ReqMsg) {
+        if HTTP.GetStrSize(ReqMsg) = this.Headers.Get("Content-Length", 0) {
+            ReqMsg := this.Request . ReqMsg
+        }
         this.Request := ReqMsg
         MessageMap := HTTP.ParseMessage(ReqMsg)
-        this.Method := Method := MessageMap["line"][1]
-        this.Url := Url := MessageMap["line"][2]
-        this.Protocol := MessageMap["line"][3]
-        this.Headers := MessageMap["headers"]
-        this.Body := MessageMap.Get("body", "")
-        if Method = "GET" and InStr(Url, "?") {
-            pos := InStr(Url, "?")
-            QueryArgs := SubStr(Url, pos + 1)
-            this.Url := SubStr(Url, 1, pos - 1)
-            QueryArgs := StrSplit(QueryArgs, ["&", "="])
-            for i in QueryArgs {
-                if InStr(i, "%") {
-                    QueryArgs[A_Index] := HTTP.UrlUnescape(i)
+        try {
+            this.Method := Method := MessageMap["line"][1]
+            this.Url := Url := MessageMap["line"][2]
+            this.Protocol := MessageMap["line"][3]
+            this.Headers := MessageMap["headers"]
+            this.Body := MessageMap.Get("body", "")
+            if Method = "GET" and InStr(Url, "?") {
+                pos := InStr(Url, "?")
+                QueryArgs := SubStr(Url, pos + 1)
+                this.Url := SubStr(Url, 1, pos - 1)
+                QueryArgs := StrSplit(QueryArgs, ["&", "="])
+                for i in QueryArgs {
+                    if InStr(i, "%") {
+                        QueryArgs[A_Index] := HTTP.UrlUnescape(i)
+                    }
                 }
+                this.GetQueryArgs := temp := Map(QueryArgs*)
             }
-            this.GetQueryArgs := temp := Map(QueryArgs*)
+        } catch Error as err {
+            temp := [A_Now, ReqMsg, err.Message, err.File, err.Line]
+            FileAppend(Format("{1}: {2}`n`t{3}`t{4}`t{5}`n", temp*), "log.txt", "`n")
         }
     }
     ; 生成请求
@@ -179,34 +187,6 @@ class HttpServer extends Socket.Server {
     MimeType := Map()
     req := Request()
     res := Response()
-    SetMimeType(file) {
-        if not FileExist(file) {
-            throw TargetError
-        }
-        this.MimeType := HTTP.LoadMimes(file)
-    }
-    SetPaths(paths) {
-        if not Type(paths) = "Map"
-            throw TypeError()
-        this.Path := paths
-    }
-    SetBodyText(str) {
-        this.res.Headers["Content-Length"] := HTTP.GetStrSize(str)
-        if not this.res.Headers.Has("Content-Type")
-            this.res.Headers["Content-Type"] := "text/plain"
-        this.res.Body := str
-    }
-    SetBodyFile(file) {
-        if !FileExist(file)
-            return false
-        buffobj := FileRead(file, "Raw")
-        this.res.Headers["Content-Length"] := buffobj.size
-        SplitPath(file, , , &ext)
-        this.MimeType.Has(ext)
-            ? this.res.Headers["Content-Type"] := this.MimeType[ext]
-            : this.res.Headers["Content-Type"] := "text/plain"
-        this.res.Body := buffobj
-    }
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
@@ -255,6 +235,34 @@ class HttpServer extends Socket.Server {
             OutputDebug "`n"
             OutputDebug this.res.Response
         }
+    }
+    SetMimeType(file) {
+        if not FileExist(file) {
+            throw TargetError
+        }
+        this.MimeType := HTTP.LoadMimes(file)
+    }
+    SetPaths(paths) {
+        if not Type(paths) = "Map"
+            throw TypeError()
+        this.Path := paths
+    }
+    SetBodyText(str) {
+        this.res.Headers["Content-Length"] := HTTP.GetStrSize(str)
+        if not this.res.Headers.Has("Content-Type")
+            this.res.Headers["Content-Type"] := "text/plain"
+        this.res.Body := str
+    }
+    SetBodyFile(file) {
+        if !FileExist(file)
+            return false
+        buffobj := FileRead(file, "Raw")
+        this.res.Headers["Content-Length"] := buffobj.size
+        SplitPath(file, , , &ext)
+        this.MimeType.Has(ext)
+            ? this.res.Headers["Content-Type"] := this.MimeType[ext]
+            : this.res.Headers["Content-Type"] := "text/plain"
+        this.res.Body := buffobj
     }
 }
 ; class Client {
