@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/01/24
- * @version 2.15
+ * @date 2025/04/11
+ * @version 2.16
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 ;@region HTTP
@@ -33,31 +33,35 @@ class HTTP {
     }
     ; 消息解析
     static ParseMessage(msg) {
-        MessageMap := Map()
-        LineEndPos := InStr(msg, "`r`n")
-        BodyStartPos := InStr(msg, "`r`n`r`n")
-        MessageMap["line"] := StrSplit(SubStr(msg, 1, LineEndPos - 1), A_Space)
-        MessageMap["headers"] := Map()
+        MessageMap := Map() ; 初始化变量
+        LineEndPos := InStr(msg, "`r`n")    ; 获取消息行结束位置
+        BodyStartPos := InStr(msg, "`r`n`r`n")  ; 获取消息体开始位置
+        MessageMap["line"] := StrSplit(SubStr(msg, 1, LineEndPos - 1), A_Space) ; 获取消息行
+        ; 解析消息头
         Headers := StrSplit(SubStr(msg, LineEndPos + 3, BodyStartPos - LineEndPos - 3), ["`r`n", ": "])
-        MessageMap["headers"].Set(Headers*)
-        MessageMap["body"] := SubStr(msg, BodyStartPos + 4)
+        MessageMap["headers"] := Map()  ; 初始化变量
+        MessageMap["headers"].Set(Headers*) ; 使用可变参数,将Array转至Map
+        MessageMap["body"] := SubStr(msg, BodyStartPos + 4) ; 获取消息体
         return MessageMap
     }
     ; 消息拼装
     static GenerateMessage(Elements) {
+        ; 传入参数的验证
         if Type(Elements) != "Map"
             throw TypeError()
         if !Elements.Has("line") or !Elements.Has("headers") or !Elements.Has("body")
             throw UnsetError()
         if Type(Elements["line"]) != "Array" or Type(Elements["headers"]) != "Map"
             throw TypeError()
-        msg := ""
-        line := Format("{1} {2} {3}", Elements["line"]*)
-        headers := ""
 
+        line := Format("{1} {2} {3}", Elements["line"]*)    ; 拼装消息行
+        ; 拼装消息头
+        headers := ""
         for k, v in Elements["headers"] {
             headers .= Format("{1}: {2}`r`n", k, v)
         }
+        msg := ""
+        ; 判断消息体类型, 是否在消息中包含消息体
         if Type(Elements["body"]) = "Buffer" {
             msg := Format("{1}`r`n{2}`r`n", line, headers)
         } else {
@@ -65,6 +69,7 @@ class HTTP {
         }
         return msg
     }
+    ; 解析mime类型文件
     static LoadMimes(File) {    ;考虑优化为JSON
         FileConent := FileRead(File, "`n")
         MimeType := Map()
@@ -175,8 +180,6 @@ class Response extends HTTP {
         if not Headers.Has("Content-Type") {
             Headers["Content-Type"] := "text/plain"
         }
-        Headers["Server"] := "AutoHotkey/" A_AhkVersion
-        Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
         ResMap := Map("line", [Line, sCode, sMsg], "headers", Headers, "body", Body)
         return this.Response := HTTP.GenerateMessage(ResMap)
     }
@@ -203,20 +206,21 @@ class HttpServer extends Socket.Server {
     }
     ; 解析客户端请求
     ParseRequest(Socket) {
-        this.req.Parse(Socket.RecvText())
+        this.req.Parse(Socket.RecvText())   ; 获取请求
         if this.Path.Has(this.req.Url) {
-            this.res.__New()
-            this.Path[this.req.Url](this.req, this.res)
-        } else {
+            this.res.__New()    ; 初始化响应类的属性
+            this.Path[this.req.Url](this.req, this.res) ; 执行请求
+        } else {    ; 404
             this.res.sCode := 404
             this.res.sMsg := "Not Found"
             this.res.Body := "404 Not Found"
         }
-        this.GenerateResponse(Socket)
+        this.GenerateResponse(Socket)   ; 发送响应
     }
 
     ; 生成服务端响应
     GenerateResponse(Socket) {
+        ; 根据请求方法设置响应
         if this.req.Method = "HEAD" {
             this.res.Body := ""
         } else if this.req.Method = "TRACE" {
@@ -224,35 +228,45 @@ class HttpServer extends Socket.Server {
         } else if this.req.Method = "OPTIONS" {
             this.res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
         }
+        ; 设置响应头
+        this.res.Headers["Content-Location"] := this.req.Url
+        this.res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
+        this.res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
+        ; 根据body类型发送响应
         if Type(this.res.Body) = "Buffer" {
             Socket.SendText(this.res.Generate())
             Socket.Send(this.res.Body)
         } else {
             Socket.SendText(this.res.Generate())
         }
+        ; 调试输出
         if this.req.Url = "/debug" or this.req.Method = "TRACE" {
             OutputDebug this.req.Request
             OutputDebug "`n"
             OutputDebug this.res.Response
         }
     }
+    ; 设置mime类型
     SetMimeType(file) {
         if not FileExist(file) {
             throw TargetError
         }
         this.MimeType := HTTP.LoadMimes(file)
     }
+    ; 设置请求路径对应的处理函数
     SetPaths(paths) {
         if not Type(paths) = "Map"
             throw TypeError()
         this.Path := paths
     }
+    ; 设置响应体(文本)
     SetBodyText(str) {
         this.res.Headers["Content-Length"] := HTTP.GetStrSize(str)
         if not this.res.Headers.Has("Content-Type")
             this.res.Headers["Content-Type"] := "text/plain"
         this.res.Body := str
     }
+    ; 设置响应体(文件)
     SetBodyFile(file) {
         if !FileExist(file)
             return false
