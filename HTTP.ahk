@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/04/11
- * @version 2.16
+ * @date 2025/04/15
+ * @version 2.1.6
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 ;@region HTTP
@@ -96,28 +96,29 @@ class HTTP {
 ;@region Request
 class Request extends HTTP {
     __New() {
-        this.Request := ""
-        this.Method := ""
-        this.Url := ""
-        this.Protocol := "HTTP/1.1"
-        this.Headers := Map()
-        this.Body := ""
-        this.GetQueryArgs := Map()
+        this.Request := ""  ; 原始请求消息
+        this.Method := ""   ; 请求方法
+        this.Url := ""  ; 请求URL
+        this.Protocol := "HTTP/1.1" ; 请求协议
+        this.Headers := Map()   ; 请求头
+        this.Body := "" ; 请求体
+        this.GetQueryArgs := Map()  ; GET请求参数
     }
     ; 解析请求
     Parse(ReqMsg) {
+        ; 修复小体积请求分段的问题
         if HTTP.GetStrSize(ReqMsg) = this.Headers.Get("Content-Length", 0) {
             ReqMsg := this.Request . ReqMsg
         }
-        this.Request := ReqMsg
-        MessageMap := HTTP.ParseMessage(ReqMsg)
+        this.Request := ReqMsg  ; 保存原始消息
+        MessageMap := HTTP.ParseMessage(ReqMsg) ; 解析消息
         try {
-            this.Method := Method := MessageMap["line"][1]
-            this.Url := Url := MessageMap["line"][2]
-            this.Protocol := MessageMap["line"][3]
-            this.Headers := MessageMap["headers"]
-            this.Body := MessageMap.Get("body", "")
-            if Method = "GET" and InStr(Url, "?") {
+            this.Method := Method := MessageMap["line"][1]  ; 请求方法
+            this.Url := Url := MessageMap["line"][2]    ; 请求URL
+            this.Protocol := MessageMap["line"][3]  ; 请求协议
+            this.Headers := MessageMap["headers"]   ; 请求头
+            this.Body := MessageMap.Get("body", "") ; 请求体
+            if Method = "GET" and InStr(Url, "?") { ; 解析GET请求参数
                 pos := InStr(Url, "?")
                 QueryArgs := SubStr(Url, pos + 1)
                 this.Url := SubStr(Url, 1, pos - 1)
@@ -130,6 +131,7 @@ class Request extends HTTP {
                 this.GetQueryArgs := temp := Map(QueryArgs*)
             }
         } catch Error as err {
+            ; 错误处理
             temp := [A_Now, ReqMsg, err.Message, err.File, err.Line]
             FileAppend(Format("{1}: {2}`n`t{3}`t{4}`t{5}`n", temp*), "log.txt", "`n")
         }
@@ -153,27 +155,27 @@ class Request extends HTTP {
 ;@region Response
 class Response extends HTTP {
     __New() {
-        this.Response := ""
-        this.Line := "HTTP/1.1"
-        this.sCode := 200
-        this.sMsg := "OK"
-        this.Headers := Map()
-        this.Body := ""
+        this.Response := "" ; 原始响应消息
+        this.Line := "HTTP/1.1" ; 响应协议
+        this.sCode := 200   ; 响应状态码
+        this.sMsg := "OK"   ; 响应状态信息
+        this.Headers := Map()   ; 响应头
+        this.Body := "" ; 响应体
     }
     ; 解析响应
     Parse(ResMsg) {
-        this.Response := ResMsg
-        MessageMap := HTTP.ParseMessage(ResMsg)
-        this.Line := MessageMap["line"][1]
-        this.sCode := MessageMap["line"][2]
-        this.sMsg := MessageMap["line"][3]
-        this.Headers := MessageMap["headers"]
-        this.Body := MessageMap.Get("body", "")
+        this.Response := ResMsg ; 保存原始消息
+        MessageMap := HTTP.ParseMessage(ResMsg) ; 解析消息
+        this.Line := MessageMap["line"][1]  ; 响应协议
+        this.sCode := MessageMap["line"][2] ; 响应状态码
+        this.sMsg := MessageMap["line"][3]  ; 响应状态信息
+        this.Headers := MessageMap["headers"]   ; 响应头
+        this.Body := MessageMap.Get("body", "") ; 响应体
     }
     ; 生成响应
     Generate(sCode := this.sCode, sMsg := this.sMsg, Headers := this.Headers, Body := this.Body) {
         Line := this.Line
-
+        ; 响应头中添加Content-Length和Content-Type
         if not Headers.Has("Content-Length") {
             Headers["Content-Length"] := HTTP.GetBodySize(Body)
         }
@@ -181,15 +183,15 @@ class Response extends HTTP {
             Headers["Content-Type"] := "text/plain"
         }
         ResMap := Map("line", [Line, sCode, sMsg], "headers", Headers, "body", Body)
-        return this.Response := HTTP.GenerateMessage(ResMap)
+        return this.Response := HTTP.GenerateMessage(ResMap)    ; 生成响应消息
     }
 }
 ;@region HttpServer
 class HttpServer extends Socket.Server {
-    Path := Map()
-    MimeType := Map()
-    req := Request()
-    res := Response()
+    Path := Map()   ; 路由表
+    MimeType := Map()   ; Mime类型表
+    req := Request()    ; 请求类
+    res := Response()   ; 响应类
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
