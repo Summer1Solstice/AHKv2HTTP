@@ -1,5 +1,7 @@
 # AHKv2HTTP
 A crude, rough and makeshift AHKv2 HTTP server.
+# 警告：这个脚本从设计到实现，都很劣质。频繁出现错误且从我自身技术而言无法进行修复。
+# 如果需要简单的HTTPserver建议尝试python的http.server
 # 注意事项与已知缺陷
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)
 2. 只能发送文件，不能接收文件。

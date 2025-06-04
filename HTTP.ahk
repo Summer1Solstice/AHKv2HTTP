@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/04/15
- * @version 2.1.6
+ * @date 2025/06/04
+ * @version 2.1.7
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 ;@region HTTP
@@ -38,7 +38,7 @@ class HTTP {
         BodyStartPos := InStr(msg, "`r`n`r`n")  ; 获取消息体开始位置
         MessageMap["line"] := StrSplit(SubStr(msg, 1, LineEndPos - 1), A_Space) ; 获取消息行
         ; 解析消息头
-        Headers := StrSplit(SubStr(msg, LineEndPos + 3, BodyStartPos - LineEndPos - 3), ["`r`n", ": "])
+        Headers := StrSplit(SubStr(msg, LineEndPos + 2, BodyStartPos - LineEndPos - 2), ["`r`n", ": "])
         MessageMap["headers"] := Map()  ; 初始化变量
         MessageMap["headers"].Set(Headers*) ; 使用可变参数,将Array转至Map
         MessageMap["body"] := SubStr(msg, BodyStartPos + 4) ; 获取消息体
