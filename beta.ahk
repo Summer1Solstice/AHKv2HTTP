@@ -1,11 +1,9 @@
 #Requires AutoHotkey v2.0
-Persistent
 /************************************************************************
  * @date 2025/04/15
  * @version 2.1.6
  ***********************************************************************/
 #Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
-#Include <print>
 ;@region HTTP
 class HTTP {
     ; 获取字符串字节长度
@@ -16,9 +14,7 @@ class HTTP {
         if Type(Body) = "Buffer" {
             return Body.size
         } else {
-            temp := HTTP.GetStrSize(Body)
-            OutputDebug temp "`n"
-            return temp
+            return HTTP.GetStrSize(Body)
         }
     }
     ; URL编码
@@ -35,56 +31,35 @@ class HTTP {
         DllCall('shlwapi\UrlUnescape', 'str', i, 'ptr', 0, 'uint*', 0, 'uint', 0x140000)
         return i
     }
-    ; ; 消息拼装
-    ; static GenerateMessage(Elements) {
-    ;     ; 传入参数的验证
-    ;     if Type(Elements) != "Map"
-    ;         throw TypeError()
-    ;     if !Elements.Has("line") or !Elements.Has("headers") or !Elements.Has("body")
-    ;         throw UnsetError()
-    ;     if Type(Elements["line"]) != "Array" or Type(Elements["headers"]) != "Map"
-    ;         throw TypeError()
-
-    ;     line := Format("{1} {2} {3}", Elements["line"]*)    ; 拼装消息行
-    ;     ; 拼装消息头
-    ;     headers := ""
-    ;     for k, v in Elements["headers"] {
-    ;         headers .= Format("{1}: {2}`r`n", k, v)
-    ;     }
-    ;     msg := ""
-    ;     ; 判断消息体类型, 是否在消息中包含消息体
-    ;     if Type(Elements["body"]) = "Buffer" {
-    ;         msg := Format("{1}`r`n{2}`r`n", line, headers)
-    ;     } else {
-    ;         msg := Format("{1}`r`n{2}`r`n{3}", line, headers, Elements["body"])
-    ;     }
-    ;     return msg
-    ; }
-    ; ; 解析mime类型文件
-    ; static LoadMimes(File) {    ;考虑优化为JSON
-    ;     FileConent := FileRead(File, "`n")
-    ;     MimeType := Map()
-    ;     MimeType.CaseSense := false
-    ;     if InStr(FileConent, ": ") {
-    ;         for i in StrSplit(FileConent, "`n") {
-    ;             i := StrSplit(i, ": ")
-    ;             MimeType.Set(i*)
-    ;         }
-    ;     } else {
-    ;         for i in StrSplit(FileConent, "`n") {
-    ;             Types := SubStr(i, 1, InStr(i, A_Space) - 1)
-    ;             i := StrReplace(i, Types)
-    ;             i := LTrim(i)
-    ;             for i in StrSplit(i, A_Space) {
-    ;                 MimeType[i] := Types
-    ;             }
-    ;         }
-    ;     }
-    ;     return MimeType
-    ; }
+    ; 解析mime类型文件
+    static LoadMimes(File) {    ;考虑优化为JSON
+        FileConent := FileRead(File, "`n")
+        MimeType := Map()
+        MimeType.CaseSense := false
+        if InStr(FileConent, ": ") {
+            for i in StrSplit(FileConent, "`n") {
+                i := StrSplit(i, ": ")
+                MimeType.Set(i*)
+            }
+        } else {
+            for i in StrSplit(FileConent, "`n") {
+                Types := SubStr(i, 1, InStr(i, A_Space) - 1)
+                i := StrReplace(i, Types)
+                i := LTrim(i)
+                for i in StrSplit(i, A_Space) {
+                    MimeType[i] := Types
+                }
+            }
+        }
+        return MimeType
+    }
+    ; log
+    static log(FN, explain) {
+        time := FormatTime(, "yyyy-MM-dd HH:mm:ss")
+        log := Format("{1} ERROR - {2}: {3}", time, FN, explain)
+        FileAppend(log, "log.txt", "utf-8")
+    }
 }
-; 请求类
-;@region Request
 ; 请求类
 ;@region Request
 class Request {
@@ -105,6 +80,7 @@ class Request {
             if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(this.Body) {
                 this.block := true
                 SetTimer(abc(*) => this.block = false, -3000)
+                HTTP.log("Request.Parse", "请求体不完整，疑似分块传输。")
                 return false
             }
             this.block := false
@@ -114,20 +90,23 @@ class Request {
         LineEndPos := InStr(ReqMsg, "`r`n")    ; 获取消息行结束位置
         BodyStartPos := InStr(ReqMsg, "`r`n`r`n")  ; 获取消息体开始位置
         if not LineEndPos or not BodyStartPos {
+            HTTP.log("Request.Parse", "疑似常规请求，不满足HTTP协议要求。")
             return false
         }
         if not InStr(SubStr(ReqMsg, LineEndPos - 8, 8), "HTTP/") {
+            HTTP.log("Request.Parse", "没有找到HTTP协议版本。")
             return false
         }
         line := SubStr(ReqMsg, 1, LineEndPos - 1)
         this.ParseLine(line)
         headers := SubStr(ReqMsg, LineEndPos + 2, BodyStartPos - LineEndPos - 2)
         body := SubStr(ReqMsg, BodyStartPos + 4)
-        if this.Method = "POST" and not this.block {
+        if this.Method = "POST" and this.block = false {
             if this.ParseHeaders(headers) {
                 if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
                     this.block := true
                 }
+                this.Body := body
             }
         } else {
             this.ParseHeaders(headers)
@@ -151,15 +130,54 @@ class Request {
     ParseHeaders(msg) {
         HeadersList := StrSplit(msg, ["`r`n", ": "])
         if Mod(HeadersList.Length, 2) {
+            HTTP.log("Request.ParseHeaders", "请求头没有成对出现，导致解析错误。")
             return false
         }
         this.Headers.Set(HeadersList*)
         return true
     }
 }
+;@region Response
+class Response extends HTTP {
+    __New() {
+        this.Response := "" ; 原始响应消息
+        this.Line := "HTTP/1.1" ; 响应协议
+        this.sCode := 200   ; 响应状态码
+        this.sMsg := "OK"   ; 响应状态信息
+        this.Headers := Map()   ; 响应头
+        this.Body := "" ; 响应体
+    }
+    ; 生成响应
+    Generate() {
+        ; 响应头中添加Content-Length和Content-Type
+        if not this.Headers.Has("Content-Length") {
+            this.Headers["Content-Length"] := HTTP.GetBodySize(this.Body)
+        }
+        if not this.Headers.Has("Content-Type") {
+            this.Headers["Content-Type"] := "text/plain"
+        }
+        ResLine := Format("{1} {2} {3}", this.Line, this.sCode, this.sMsg)
+        ResHeaders := ""
+        for k, v in this.Headers {
+            ResHeaders .= Format("{1}: {2}`r`n", k, v)
+        }
+        ; 判断消息体类型, 是否在消息中包含消息体
+        if Type(this.Body) = "Buffer" {
+            msg := Format("{1}`r`n{2}`r`n", ResLine, ResHeaders)
+        } else {
+            msg := Format("{1}`r`n{2}`r`n{3}", ResLine, ResHeaders, this.Body)
+        }
+        return this.Response := msg
+    }
+}
+
 ;@region HttpServer
 class HttpServer extends Socket.Server {
+    Path := Map()   ; 路由表
+    MimeType := Map()   ; Mime类型表
     req := Request()    ; 请求类
+    res := Response()   ; 响应类
+
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
@@ -171,12 +189,78 @@ class HttpServer extends Socket.Server {
     }
     ; 解析客户端请求
     ParseRequest(Socket) {
-        if this.req.Parse(Socket.RecvText()) {
-            FileAppend(this.req.Body, "log.txt", "utf-8")
+        this.req.Parse(Socket.RecvText())
+        if this.Path.Has(this.req.Url) {
+            this.res.__New()    ; 初始化响应类的属性
+            this.Path[this.req.Url](this.req, this.res) ; 执行请求
+        } else {    ; 404
+            this.res.sCode := 404
+            this.res.sMsg := "Not Found"
+            this.res.Body := "404 Not Found"
+        }
+        this.GenerateResponse(Socket)   ; 发送响应
+    }
+    ; 生成响应
+    GenerateResponse(Socket) {
+        ; 根据请求方法设置响应
+        if this.req.Method = "HEAD" {
+            this.res.Body := ""
+        } else if this.req.Method = "TRACE" {
+            this.SetBodyText(this.req.Request)
+        } else if this.req.Method = "OPTIONS" {
+            this.res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
+        }
+        ; 设置响应头
+        this.res.Headers["Content-Location"] := this.req.Url
+        this.res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
+        this.res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
+        ; 根据body类型发送响应
+        if Type(this.res.Body) = "Buffer" {
+            Socket.SendText(this.res.Generate())
+            Socket.Send(this.res.Body)
+        } else {
+            Socket.SendText(this.res.Generate())
+        }
+        ; 调试输出
+        if this.req.Url = "/debug" or this.req.Method = "TRACE" {
+            OutputDebug this.req.Request
+            OutputDebug "`n=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=`n"
+            OutputDebug this.res.Response
         }
     }
-}
-
-if A_ScriptName = "beta.ahk" {
-    Server := HttpServer(10000)
+    ; 设置mime类型
+    SetMimeType(file) {
+        if not FileExist(file) {
+            throw TargetError
+        }
+        this.MimeType := HTTP.LoadMimes(file)
+    }
+    ; 设置请求路径对应的处理函数
+    SetPaths(paths) {
+        if not Type(paths) = "Map" {
+            throw TypeError()
+        }
+        this.Path := paths
+    }
+    ; 设置响应体(文本)
+    SetBodyText(str) {
+        this.res.Headers["Content-Length"] := HTTP.GetStrSize(str)
+        if not this.res.Headers.Has("Content-Type")
+            this.res.Headers["Content-Type"] := "text/plain"
+        this.res.Body := str
+    }
+    ; 设置响应体(文件)
+    SetBodyFile(file) {
+        if !FileExist(file) {
+            HTTP.log("HttpServer.SetBodyFile", "传入参数类型错误")
+            return false
+        }
+        buffobj := FileRead(file, "Raw")
+        this.res.Headers["Content-Length"] := buffobj.size
+        SplitPath(file, , , &ext)
+        this.MimeType.Has(ext)
+            ? this.res.Headers["Content-Type"] := this.MimeType[ext]
+            : this.res.Headers["Content-Type"] := "text/plain"
+        this.res.Body := buffobj
+    }
 }

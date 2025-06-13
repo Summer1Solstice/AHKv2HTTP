@@ -281,8 +281,3 @@ class HttpServer extends Socket.Server {
         this.res.Body := buffobj
     }
 }
-; class Client {
-
-; }
-
-#Include <print>
