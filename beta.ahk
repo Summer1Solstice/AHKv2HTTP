@@ -3,7 +3,8 @@
  * @date 2025/04/15
  * @version 2.1.6
  ***********************************************************************/
-#Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
+#Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
+
 ;@region HTTP
 class HTTP {
     ; 获取字符串字节长度
@@ -56,7 +57,7 @@ class HTTP {
     ; log
     static log(FN, explain) {
         time := FormatTime(, "yyyy-MM-dd HH:mm:ss")
-        log := Format("{1} ERROR - {2}: {3}", time, FN, explain)
+        log := Format("{1} ERROR - {2}: {3}`n", time, FN, explain)
         FileAppend(log, "log.txt", "utf-8")
     }
 }
