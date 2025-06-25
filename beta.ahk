@@ -253,7 +253,7 @@ class HttpServer extends Socket.Server {
     ; 设置响应体(文件)
     SetBodyFile(file) {
         if !FileExist(file) {
-            HTTP.log("HttpServer.SetBodyFile", "传入参数类型错误")
+            HTTP.log("HttpServer.SetBodyFile", "文件路径错误")
             return false
         }
         buffobj := FileRead(file, "Raw")
