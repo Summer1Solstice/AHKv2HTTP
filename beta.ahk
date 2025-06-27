@@ -194,7 +194,9 @@ class HttpServer extends Socket.Server {
         if this.Path.Has(this.req.Url) {
             this.res.__New()    ; 初始化响应类的属性
             this.Path[this.req.Url](this.req, this.res) ; 执行请求
-        } else {    ; 404
+        } else if FileExist(temp := StrReplace(this.req.Url, "/", "./", , , 1)) {
+            this.SetBodyFile(temp)
+        } else {
             this.res.sCode := 404
             this.res.sMsg := "Not Found"
             this.res.Body := "404 Not Found"
@@ -225,8 +227,9 @@ class HttpServer extends Socket.Server {
         ; 调试输出
         if this.req.Url = "/debug" or this.req.Method = "TRACE" {
             OutputDebug this.req.Request
-            OutputDebug "`n=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=`n"
+            OutputDebug "`n------------------------------------`n"
             OutputDebug this.res.Response
+            OutputDebug "`n************************************`n"
         }
     }
     ; 设置mime类型
