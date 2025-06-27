@@ -72,7 +72,7 @@ class Request {
         this.Headers := Map()   ; 请求头
         this.Body := "" ; 请求体
         this.GetQueryArgs := Map()  ; GET请求参数
-        this.block := false
+        this.block := false ; 是否分块传输
     }
     ; 处理请求
     Parse(ReqMsg) {
@@ -178,7 +178,7 @@ class HttpServer extends Socket.Server {
     MimeType := Map()   ; Mime类型表
     req := Request()    ; 请求类
     res := Response()   ; 响应类
-
+    web := false    ; 是否开启web功能
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
@@ -190,18 +190,27 @@ class HttpServer extends Socket.Server {
     }
     ; 解析客户端请求
     ParseRequest(Socket) {
-        this.req.Parse(Socket.RecvText())
+        this.req.Parse(Socket.RecvText())   ; 解析请求
+        this.res.__New()    ; 初始化响应类的属性
         if this.Path.Has(this.req.Url) {
-            this.res.__New()    ; 初始化响应类的属性
             this.Path[this.req.Url](this.req, this.res) ; 执行请求
-        } else if FileExist(temp := StrReplace(this.req.Url, "/", "./", , , 1)) {
-            this.SetBodyFile(temp)
+        } else if this.web {
+            if this.req.Headers.Get("Host", "") ~= "192\.168\.|127\.0\.0\.1|localhost" {
+                path := "." this.req.Url
+                SplitPath(this.req.Url, , , &ext)
+                if FileExist(path) and this.MimeType.Has(ext) {
+                    this.SetBodyFile(path)
+                } else {
+                    this.Not_Found()
+                }
+            } else {
+                this.Not_Found()
+            }
         } else {
-            this.res.sCode := 404
-            this.res.sMsg := "Not Found"
-            this.res.Body := "404 Not Found"
+            this.Not_Found()
         }
         this.GenerateResponse(Socket)   ; 发送响应
+        ; this.DeBug()
     }
     ; 生成响应
     GenerateResponse(Socket) {
@@ -226,10 +235,7 @@ class HttpServer extends Socket.Server {
         }
         ; 调试输出
         if this.req.Url = "/debug" or this.req.Method = "TRACE" {
-            OutputDebug this.req.Request
-            OutputDebug "`n------------------------------------`n"
-            OutputDebug this.res.Response
-            OutputDebug "`n************************************`n"
+            this.DeBug()
         }
     }
     ; 设置mime类型
@@ -266,5 +272,17 @@ class HttpServer extends Socket.Server {
             ? this.res.Headers["Content-Type"] := this.MimeType[ext]
             : this.res.Headers["Content-Type"] := "text/plain"
         this.res.Body := buffobj
+    }
+    ; DEBUG
+    DeBug() {
+        OutputDebug this.req.Request
+        OutputDebug "`n------------------------------------`n"
+        OutputDebug this.res.Response
+        OutputDebug "`n************************************`n"
+    }
+    Not_Found() {
+        this.res.sCode := 404
+        this.res.sMsg := "Not Found"
+        this.res.Body := "404 Not Found"
     }
 }
