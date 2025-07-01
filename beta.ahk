@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/04/15
- * @version 2.1.6
+ * @date 2025/06/30
+ * @version 2.2.2
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -33,8 +33,8 @@ class HTTP {
         return i
     }
     ; 解析mime类型文件
-    static LoadMimes(File) {    ;考虑优化为JSON
-        FileConent := FileRead(File, "`n")
+    static LoadMimes(file_path) {    ;考虑优化为JSON
+        FileConent := FileRead(file_path, "`n")
         MimeType := Map()
         MimeType.CaseSense := false
         if InStr(FileConent, ": ") {
@@ -239,11 +239,11 @@ class HttpServer extends Socket.Server {
         }
     }
     ; 设置mime类型
-    SetMimeType(file) {
-        if not FileExist(file) {
+    SetMimeType(file_path) {
+        if not FileExist(file_path) {
             throw TargetError
         }
-        this.MimeType := HTTP.LoadMimes(file)
+        this.MimeType := HTTP.LoadMimes(file_path)
     }
     ; 设置请求路径对应的处理函数
     SetPaths(paths) {
@@ -260,8 +260,8 @@ class HttpServer extends Socket.Server {
         this.res.Body := str
     }
     ; 设置响应体(文件)
-    SetBodyFile(file) {
-        if !FileExist(file) {
+    SetBodyFile(file_path) {
+        if !FileExist(file_path) {
             HTTP.log("HttpServer.SetBodyFile", "文件路径错误")
             return false
         }
