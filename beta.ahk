@@ -183,8 +183,12 @@ class HttpServer extends Socket.Server {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
         onread(Socket, err) {
-            if Socket.MsgSize() {
-                this.ParseRequest(Socket)
+            if InStr(Socket.addr, "127.0.0.1") or InStr(Socket.addr, "192.168.") {
+                if Socket.MsgSize() {
+                    this.ParseRequest(Socket)
+                }
+            } else {
+                Socket.__Delete()
             }
         }
     }
