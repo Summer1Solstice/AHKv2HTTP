@@ -1,4 +1,4 @@
-# AHKv2HTTP
+# AHKv2HTTPv1
 A crude, rough and makeshift AHKv2 HTTP server.
 # 注意
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)

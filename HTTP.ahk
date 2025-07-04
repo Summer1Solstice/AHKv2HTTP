@@ -1,11 +1,17 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/06/04
- * @version 2.1.7
+ * @date 2025/07/04
+ * @version 2.3.2
  ***********************************************************************/
-#Include <Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
+#Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
+
 ;@region HTTP
 class HTTP {
+    static __New() {
+        if not DirExist("log"){
+            DirCreate("log")
+        }
+    }
     ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
         return StrPut(str, encoding) - ((encoding = "UTF-16" or encoding = "CP1200") ? 2 : 1)
@@ -31,47 +37,9 @@ class HTTP {
         DllCall('shlwapi\UrlUnescape', 'str', i, 'ptr', 0, 'uint*', 0, 'uint', 0x140000)
         return i
     }
-    ; 消息解析
-    static ParseMessage(msg) {
-        MessageMap := Map() ; 初始化变量
-        LineEndPos := InStr(msg, "`r`n")    ; 获取消息行结束位置
-        BodyStartPos := InStr(msg, "`r`n`r`n")  ; 获取消息体开始位置
-        MessageMap["line"] := StrSplit(SubStr(msg, 1, LineEndPos - 1), A_Space) ; 获取消息行
-        ; 解析消息头
-        Headers := StrSplit(SubStr(msg, LineEndPos + 2, BodyStartPos - LineEndPos - 2), ["`r`n", ": "])
-        MessageMap["headers"] := Map()  ; 初始化变量
-        MessageMap["headers"].Set(Headers*) ; 使用可变参数,将Array转至Map
-        MessageMap["body"] := SubStr(msg, BodyStartPos + 4) ; 获取消息体
-        return MessageMap
-    }
-    ; 消息拼装
-    static GenerateMessage(Elements) {
-        ; 传入参数的验证
-        if Type(Elements) != "Map"
-            throw TypeError()
-        if !Elements.Has("line") or !Elements.Has("headers") or !Elements.Has("body")
-            throw UnsetError()
-        if Type(Elements["line"]) != "Array" or Type(Elements["headers"]) != "Map"
-            throw TypeError()
-
-        line := Format("{1} {2} {3}", Elements["line"]*)    ; 拼装消息行
-        ; 拼装消息头
-        headers := ""
-        for k, v in Elements["headers"] {
-            headers .= Format("{1}: {2}`r`n", k, v)
-        }
-        msg := ""
-        ; 判断消息体类型, 是否在消息中包含消息体
-        if Type(Elements["body"]) = "Buffer" {
-            msg := Format("{1}`r`n{2}`r`n", line, headers)
-        } else {
-            msg := Format("{1}`r`n{2}`r`n{3}", line, headers, Elements["body"])
-        }
-        return msg
-    }
     ; 解析mime类型文件
-    static LoadMimes(File) {    ;考虑优化为JSON
-        FileConent := FileRead(File, "`n")
+    static LoadMimes(file_path) {    ;考虑优化为JSON
+        FileConent := FileRead(file_path, "`n")
         MimeType := Map()
         MimeType.CaseSense := false
         if InStr(FileConent, ": ") {
@@ -91,10 +59,17 @@ class HTTP {
         }
         return MimeType
     }
+    ; log
+    static log(FN, explain) {
+        date := FormatTime(, "yyyy-MM-dd")
+        time := FormatTime(, "HH:mm:ss")
+        log := Format("{1} WARN - {2}: {3}`n", time, FN, explain)
+        FileAppend(log, "log\" date ".log", "utf-8")
+    }
 }
 ; 请求类
 ;@region Request
-class Request extends HTTP {
+class Request {
     __New() {
         this.Request := ""  ; 原始请求消息
         this.Method := ""   ; 请求方法
@@ -103,55 +78,72 @@ class Request extends HTTP {
         this.Headers := Map()   ; 请求头
         this.Body := "" ; 请求体
         this.GetQueryArgs := Map()  ; GET请求参数
+        this.block := false ; 是否分块传输
     }
-    ; 解析请求
+    ; 处理请求
     Parse(ReqMsg) {
-        ; 修复小体积请求分段的问题
-        if HTTP.GetStrSize(ReqMsg) = this.Headers.Get("Content-Length", 0) {
-            ReqMsg := this.Request . ReqMsg
-        }
-        this.Request := ReqMsg  ; 保存原始消息
-        MessageMap := HTTP.ParseMessage(ReqMsg) ; 解析消息
-        try {
-            this.Method := Method := MessageMap["line"][1]  ; 请求方法
-            this.Url := Url := MessageMap["line"][2]    ; 请求URL
-            this.Protocol := MessageMap["line"][3]  ; 请求协议
-            this.Headers := MessageMap["headers"]   ; 请求头
-            this.Body := MessageMap.Get("body", "") ; 请求体
-            if Method = "GET" and InStr(Url, "?") { ; 解析GET请求参数
-                pos := InStr(Url, "?")
-                QueryArgs := SubStr(Url, pos + 1)
-                this.Url := SubStr(Url, 1, pos - 1)
-                QueryArgs := StrSplit(QueryArgs, ["&", "="])
-                for i in QueryArgs {
-                    if InStr(i, "%") {
-                        QueryArgs[A_Index] := HTTP.UrlUnescape(i)
-                    }
-                }
-                this.GetQueryArgs := temp := Map(QueryArgs*)
+        if this.block {
+            this.Body .= ReqMsg
+            if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(this.Body) {
+                this.block := true
+                SetTimer(abc(*) => this.block = false, -3000)
+                HTTP.log("Request.Parse", "请求体不完整，疑似分块传输。")
+                return false
             }
-        } catch Error as err {
-            ; 错误处理
-            temp := [A_Now, ReqMsg, err.Message, err.File, err.Line]
-            FileAppend(Format("{1}: {2}`n`t{3}`t{4}`t{5}`n", temp*), "log.txt", "`n")
+            this.block := false
+            return true
+        }
+        this.Request := ReqMsg
+        LineEndPos := InStr(ReqMsg, "`r`n")    ; 获取消息行结束位置
+        BodyStartPos := InStr(ReqMsg, "`r`n`r`n")  ; 获取消息体开始位置
+        if not LineEndPos or not BodyStartPos {
+            HTTP.log("Request.Parse", "疑似常规请求，不满足HTTP协议要求。 " this.Request)
+            return false
+        }
+        if not InStr(SubStr(ReqMsg, LineEndPos - 8, 8), "HTTP/") {
+            HTTP.log("Request.Parse", "没有找到HTTP协议版本。")
+            return false
+        }
+        line := SubStr(ReqMsg, 1, LineEndPos - 1)
+        this.ParseLine(line)
+        headers := SubStr(ReqMsg, LineEndPos + 2, BodyStartPos - LineEndPos - 2)
+        body := SubStr(ReqMsg, BodyStartPos + 4)
+        if this.Method = "POST" and this.block = false {
+            if this.ParseHeaders(headers) {
+                if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
+                    this.block := true
+                }
+                this.Body := body
+            }
+        } else {
+            this.ParseHeaders(headers)
+            this.Body := body
         }
     }
-    ; 生成请求
-    Generate(Method := this.Method, Url := this.Url, Headers := this.Headers, Body := this.Body) {
-        Method := StrUpper(Method)
-        if Method = "GET" and this.GetQueryArgs.Count > 0 {
-            Url .= "?"
-            for k, v in this.GetQueryArgs {
-                k := HTTP.UrlEncode(k)
-                v := HTTP.UrlEncode(v)
-                Url .= (A_Index < this.GetQueryArgs.Count) ? k "=" v "&" : k "=" v
-            }
+    ; 解析请求行
+    ParseLine(msg) {
+        LineList := StrSplit(msg, A_Space)
+        this.Method := LineList[1]
+        this.Url := LineList[2]
+        this.Protocol := LineList[3]
+        if LineList[1] = "GET" and pos := InStr(this.Url, "?") {
+            GetArgs := HTTP.UrlUnescape(SubStr(this.Url, pos + 1))
+            this.Url := SubStr(this.Url, 1, pos - 1)
+            this.GetQueryArgs.Set(StrSplit(GetArgs, ["&", "="])*)
         }
-        ReqMap := Map("line", [Method, Url, this.Protocol], "headers", Headers, "body", Body)
-        return this.Request := HTTP.GenerateMessage(ReqMap)
+        return true
+    }
+    ; 解析请求头
+    ParseHeaders(msg) {
+        HeadersList := StrSplit(msg, ["`r`n", ": "])
+        if Mod(HeadersList.Length, 2) {
+            HTTP.log("Request.ParseHeaders", "解析失败，请求头没有成对出现。")
+            return false
+        }
+        this.Headers.Set(HeadersList*)
+        return true
     }
 }
-; 响应类
 ;@region Response
 class Response extends HTTP {
     __New() {
@@ -162,65 +154,75 @@ class Response extends HTTP {
         this.Headers := Map()   ; 响应头
         this.Body := "" ; 响应体
     }
-    ; 解析响应
-    Parse(ResMsg) {
-        this.Response := ResMsg ; 保存原始消息
-        MessageMap := HTTP.ParseMessage(ResMsg) ; 解析消息
-        this.Line := MessageMap["line"][1]  ; 响应协议
-        this.sCode := MessageMap["line"][2] ; 响应状态码
-        this.sMsg := MessageMap["line"][3]  ; 响应状态信息
-        this.Headers := MessageMap["headers"]   ; 响应头
-        this.Body := MessageMap.Get("body", "") ; 响应体
-    }
     ; 生成响应
-    Generate(sCode := this.sCode, sMsg := this.sMsg, Headers := this.Headers, Body := this.Body) {
-        Line := this.Line
+    Generate() {
         ; 响应头中添加Content-Length和Content-Type
-        if not Headers.Has("Content-Length") {
-            Headers["Content-Length"] := HTTP.GetBodySize(Body)
+        if not this.Headers.Has("Content-Length") {
+            this.Headers["Content-Length"] := HTTP.GetBodySize(this.Body)
         }
-        if not Headers.Has("Content-Type") {
-            Headers["Content-Type"] := "text/plain"
+        if not this.Headers.Has("Content-Type") {
+            this.Headers["Content-Type"] := "text/plain"
         }
-        ResMap := Map("line", [Line, sCode, sMsg], "headers", Headers, "body", Body)
-        return this.Response := HTTP.GenerateMessage(ResMap)    ; 生成响应消息
+        ResLine := Format("{1} {2} {3}", this.Line, this.sCode, this.sMsg)
+        ResHeaders := ""
+        for k, v in this.Headers {
+            ResHeaders .= Format("{1}: {2}`r`n", k, v)
+        }
+        ; 判断消息体类型, 是否在消息中包含消息体
+        if Type(this.Body) = "Buffer" {
+            msg := Format("{1}`r`n{2}`r`n", ResLine, ResHeaders)
+        } else {
+            msg := Format("{1}`r`n{2}`r`n{3}", ResLine, ResHeaders, this.Body)
+        }
+        return this.Response := msg
     }
 }
+
 ;@region HttpServer
 class HttpServer extends Socket.Server {
     Path := Map()   ; 路由表
     MimeType := Map()   ; Mime类型表
     req := Request()    ; 请求类
     res := Response()   ; 响应类
+    web := false    ; 是否开启web功能
+    RejectExternalIP := true  ; 是否拒绝外部IP连接
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
         onread(Socket, err) {
+            HTTP.log("HttpServer.onACCEPT", "收到来自" Socket.addr "的请求。")
             if Socket.MsgSize() {
+                if this.RejectExternalIP {
+                    if not (InStr(Socket.addr, "127.0.0.1") or InStr(Socket.addr, "192.168.")) {
+                        Socket.__Delete()
+                        return
+                    }
+                }
                 this.ParseRequest(Socket)
             }
         }
-        ; this.client.onCLOSE := onclose
-        ; onclose(Socket, err) {
-        ;     ; this.req.__New()
-        ;     ; this.res.__New()
-        ; }
     }
     ; 解析客户端请求
     ParseRequest(Socket) {
-        this.req.Parse(Socket.RecvText())   ; 获取请求
+        this.req.Parse(Socket.RecvText())   ; 解析请求
+        this.res.__New()    ; 初始化响应类的属性
         if this.Path.Has(this.req.Url) {
-            this.res.__New()    ; 初始化响应类的属性
             this.Path[this.req.Url](this.req, this.res) ; 执行请求
-        } else {    ; 404
-            this.res.sCode := 404
-            this.res.sMsg := "Not Found"
-            this.res.Body := "404 Not Found"
+        } else if this.web and not this.RejectExternalIP {
+            path := "." this.req.Url
+            SplitPath(this.req.Url, , , &ext)
+            if FileExist(path) and this.MimeType.Has(ext) {
+                this.SetBodyFile(path)
+            } else {
+                this.Not_Found()
+            }
+        } else {
+            this.Not_Found()
         }
         this.GenerateResponse(Socket)   ; 发送响应
+        ; this.DeBug()
     }
-
-    ; 生成服务端响应
+    ; 生成响应
     GenerateResponse(Socket) {
         ; 根据请求方法设置响应
         if this.req.Method = "HEAD" {
@@ -243,22 +245,21 @@ class HttpServer extends Socket.Server {
         }
         ; 调试输出
         if this.req.Url = "/debug" or this.req.Method = "TRACE" {
-            OutputDebug this.req.Request
-            OutputDebug "`n"
-            OutputDebug this.res.Response
+            this.DeBug()
         }
     }
     ; 设置mime类型
-    SetMimeType(file) {
-        if not FileExist(file) {
+    SetMimeType(file_path) {
+        if not FileExist(file_path) {
             throw TargetError
         }
-        this.MimeType := HTTP.LoadMimes(file)
+        this.MimeType := HTTP.LoadMimes(file_path)
     }
     ; 设置请求路径对应的处理函数
     SetPaths(paths) {
-        if not Type(paths) = "Map"
+        if not Type(paths) = "Map" {
             throw TypeError()
+        }
         this.Path := paths
     }
     ; 设置响应体(文本)
@@ -269,15 +270,29 @@ class HttpServer extends Socket.Server {
         this.res.Body := str
     }
     ; 设置响应体(文件)
-    SetBodyFile(file) {
-        if !FileExist(file)
+    SetBodyFile(file_path) {
+        if !FileExist(file_path) {
+            HTTP.log("HttpServer.SetBodyFile", file_path " 文件不存在或路径错误")
             return false
-        buffobj := FileRead(file, "Raw")
+        }
+        buffobj := FileRead(file_path, "Raw")
         this.res.Headers["Content-Length"] := buffobj.size
-        SplitPath(file, , , &ext)
+        SplitPath(file_path, , , &ext)
         this.MimeType.Has(ext)
             ? this.res.Headers["Content-Type"] := this.MimeType[ext]
             : this.res.Headers["Content-Type"] := "text/plain"
         this.res.Body := buffobj
+    }
+    ; DEBUG
+    DeBug() {
+        OutputDebug this.req.Request
+        OutputDebug "`n------------------------------------`n"
+        OutputDebug this.res.Response
+        OutputDebug "`n************************************`n"
+    }
+    Not_Found() {
+        this.res.sCode := 404
+        this.res.sMsg := "Not Found"
+        this.res.Body := "404 Not Found"
     }
 }

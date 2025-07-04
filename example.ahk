@@ -10,11 +10,19 @@ path["/debug"] := debug
 Server := HttpServer(10000)
 Server.SetPaths(path)
 Server.SetMimeType("mime.types")
+Server.web := true	; 开启web服务
+Server.RejectExternalIP := false	; 不拒绝外部IP访问
 
 root(req, res) {
-	res.Body := "Hello World!"
-	res.sCode := 200
-	res.sMsg := "OK"
+    if Server.web {
+        Server.SetBodyFile(".\index.html")
+    } else {
+        HelloWorld(req, res)
+    }
+}
+HelloWorld(req, res) {
+    Server.SetBodyText("Hello World!")
+    res.sCode := 200
 }
 logo(req, res) {
 	Server.SetBodyFile("logo.png")

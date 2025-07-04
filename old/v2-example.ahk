@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 Persistent
-#Include beta.ahk
+#Include HTTP.ahk
 
 path := Map()
 path["/"] := root
