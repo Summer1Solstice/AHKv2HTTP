@@ -28,9 +28,5 @@ logo(req, res) {
 	Server.SetBodyFile("logo.png")
 }
 debug(req, res) {
-	body := ""
-	for k, v in req.GetQueryArgs {
-		body .= k "=" v
-	}
-	res.Body := body
+	res.Body := req.Request
 }

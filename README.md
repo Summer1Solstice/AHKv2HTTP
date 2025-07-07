@@ -53,4 +53,4 @@ jpg: image/jpeg
 | Body | 响应体 | String |
 
 ## 日志
-预期内的错误会输出日志到`A_WorkingDir`的`log.txt`文件。
+预期内的错误会输出日志到`A_WorkingDir\log\{date}.log`文件。

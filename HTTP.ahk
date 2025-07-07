@@ -8,7 +8,7 @@
 ;@region HTTP
 class HTTP {
     static __New() {
-        if not DirExist("log"){
+        if not DirExist("log") {
             DirCreate("log")
         }
     }
@@ -59,11 +59,16 @@ class HTTP {
         }
         return MimeType
     }
-    ; log
-    static log(FN, explain) {
+    /**日志
+     * @param Explain 日志说明
+     * @param {Integer} LogLevel ["DEBUG", "INFO", "WARN", "ERROR"]
+     * @param {String} FuncName 当前函数名，自动获取
+     */
+    static Log(Explain, LogLevel := 4) {
+        static logLevelDict := ["DEBUG", "INFO", "WARN", "ERROR"]
         date := FormatTime(, "yyyy-MM-dd")
         time := FormatTime(, "HH:mm:ss")
-        log := Format("{1} WARN - {2}: {3}`n", time, FN, explain)
+        Log := Format("{1} {} - {}`n", time, logLevelDict[LogLevel], Explain)
         FileAppend(log, "log\" date ".log", "utf-8")
     }
 }
@@ -87,7 +92,7 @@ class Request {
             if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(this.Body) {
                 this.block := true
                 SetTimer(abc(*) => this.block = false, -3000)
-                HTTP.log("Request.Parse", "请求体不完整，疑似分块传输。")
+                HTTP.log("请求体不完整，疑似分块传输。")
                 return false
             }
             this.block := false
@@ -97,11 +102,11 @@ class Request {
         LineEndPos := InStr(ReqMsg, "`r`n")    ; 获取消息行结束位置
         BodyStartPos := InStr(ReqMsg, "`r`n`r`n")  ; 获取消息体开始位置
         if not LineEndPos or not BodyStartPos {
-            HTTP.log("Request.Parse", "疑似常规请求，不满足HTTP协议要求。 " this.Request)
+            HTTP.log("疑似常规请求，不满足HTTP协议要求。 " this.Request)
             return false
         }
         if not InStr(SubStr(ReqMsg, LineEndPos - 8, 8), "HTTP/") {
-            HTTP.log("Request.Parse", "没有找到HTTP协议版本。")
+            HTTP.log("没有找到HTTP协议版本。")
             return false
         }
         line := SubStr(ReqMsg, 1, LineEndPos - 1)
@@ -137,7 +142,7 @@ class Request {
     ParseHeaders(msg) {
         HeadersList := StrSplit(msg, ["`r`n", ": "])
         if Mod(HeadersList.Length, 2) {
-            HTTP.log("Request.ParseHeaders", "解析失败，请求头没有成对出现。")
+            HTTP.log("解析失败，请求头没有成对出现。")
             return false
         }
         this.Headers.Set(HeadersList*)
@@ -190,10 +195,10 @@ class HttpServer extends Socket.Server {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
         onread(Socket, err) {
-            HTTP.log("HttpServer.onACCEPT", "收到来自" Socket.addr "的请求。")
             if Socket.MsgSize() {
                 if this.RejectExternalIP {
                     if not (InStr(Socket.addr, "127.0.0.1") or InStr(Socket.addr, "192.168.")) {
+                        HTTP.log("已拒绝来自" Socket.addr "的请求", 3)
                         Socket.__Delete()
                         return
                     }
@@ -272,7 +277,7 @@ class HttpServer extends Socket.Server {
     ; 设置响应体(文件)
     SetBodyFile(file_path) {
         if !FileExist(file_path) {
-            HTTP.log("HttpServer.SetBodyFile", file_path " 文件不存在或路径错误")
+            HTTP.log(file_path " 文件不存在或路径错误")
             return false
         }
         buffobj := FileRead(file_path, "Raw")
