@@ -6,6 +6,7 @@ path := Map()
 path["/"] := root
 path["/logo"] := logo
 path["/debug"] := debug
+; path["/latency"] := latency
 
 Server := HttpServer(10000)
 Server.SetPaths(path)
@@ -25,8 +26,17 @@ HelloWorld(req, res) {
     res.sCode := 200
 }
 logo(req, res) {
-	Server.SetBodyFile("logo.png")
+    Server.SetBodyFile("logo.png")
 }
 debug(req, res) {
-	res.Body := req.Request
+    res.Body := req.Request
 }
+; latency(req, res) {
+;     n := req.Body
+;     if IsInteger(n) and n >= 1 {
+;         res.Body := Collatz_Conjecture(n)
+;         HTTP.Log("latency: " n, 1)
+;         return true
+;     }
+;     HTTP.Log("latency:`n" n, 1)
+; }

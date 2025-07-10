@@ -8,8 +8,8 @@
 ;@region HTTP
 class HTTP {
     static __New() {
-        if not DirExist("log") {
-            DirCreate("log")
+        if not DirExist("logs") {
+            DirCreate("logs")
         }
     }
     ; 获取字符串字节长度
@@ -69,7 +69,7 @@ class HTTP {
         date := FormatTime(, "yyyy-MM-dd")
         time := FormatTime(, "HH:mm:ss")
         Log := Format("{1} {} - {}`n", time, logLevelDict[LogLevel], Explain)
-        FileAppend(log, "log\" date ".log", "utf-8")
+        FileAppend(log, "logs\" date ".log", "utf-8")
     }
 }
 ; 请求类
