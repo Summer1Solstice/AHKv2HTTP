@@ -131,10 +131,17 @@ class Request {
         this.Method := LineList[1]
         this.Url := LineList[2]
         this.Protocol := LineList[3]
-        if LineList[1] = "GET" and pos := InStr(this.Url, "?") {
+        if LineList[1] = "GET" and pos := InStr(this.Url, "?") {    ; 使用问号判断可能有点草率
             GetArgs := HTTP.UrlUnescape(SubStr(this.Url, pos + 1))
+            ArgsList := StrSplit(GetArgs, ["&", "="])
+            if Mod(ArgsList.Length, 2) {
+                HTTP.log("GET请求参数错误。" this.Url, 3)
+                ArgsList.Push("")
+            }
             this.Url := SubStr(this.Url, 1, pos - 1)
-            this.GetQueryArgs.Set(StrSplit(GetArgs, ["&", "="])*)
+            this.GetQueryArgs := Map(ArgsList*)
+        } else {
+            this.GetQueryArgs := Map()
         }
         return true
     }
@@ -145,7 +152,7 @@ class Request {
             HTTP.log("解析失败，请求头没有成对出现。")
             return false
         }
-        this.Headers.Set(HeadersList*)
+        this.Headers := Map(HeadersList*)
         return true
     }
 }
