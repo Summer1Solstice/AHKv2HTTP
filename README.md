@@ -51,6 +51,7 @@ jpg: image/jpeg
 | sMsg | 响应消息 | String |
 | Headers | 响应头 | Map |
 | Body | 响应体 | String |
+
 `Line`、`sCode`、`sMsg`拥有默认值`HTTP/1.1`、`200`、`OK`
 ## 日志
 预期内的错误会输出日志到`A_WorkingDir\logs\{date}.log`文件。
