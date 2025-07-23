@@ -64,7 +64,7 @@ class HTTP {
      * @param {Integer} LogLevel ["DEBUG", "INFO", "WARN", "ERROR"]
      * @param {String} FuncName 当前函数名，自动获取
      */
-    static Log(Explain, LogLevel := 4) {
+    static log(Explain, LogLevel := 4) {
         static logLevelDict := ["DEBUG", "INFO", "WARN", "ERROR"]
         date := FormatTime(, "yyyy-MM-dd")
         time := FormatTime(, "HH:mm:ss")
@@ -211,7 +211,7 @@ class HttpServer extends Socket.Server {
                     }
                 }
                 this.ParseRequest(Socket)
-                ; HTTP.Log("IP: " Socket.addr " 访问了 " this.req.Url, 2)
+                ; HTTP.log("IP: " Socket.addr " 访问了 " this.req.Url, 2)
             }
         }
     }
@@ -299,9 +299,9 @@ class HttpServer extends Socket.Server {
     ; DEBUG
     DeBug() {
         OutputDebug this.req.Request
-        OutputDebug "`n------------------------------------`n"
+        OutputDebug "`n----------------------------------`n"
         OutputDebug this.res.Response
-        OutputDebug "`n************************************`n"
+        OutputDebug "`n=====================================================================`n"
     }
     Not_Found() {
         this.res.sCode := 404
