@@ -210,8 +210,8 @@ class HttpServer extends Socket.Server {
                         return
                     }
                 }
-                this.ParseRequest(Socket)
                 ; HTTP.log("IP: " Socket.addr " 访问了 " this.req.Url, 2)
+                this.ParseRequest(Socket)
             }
         }
     }

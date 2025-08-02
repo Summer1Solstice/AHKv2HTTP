@@ -16,10 +16,10 @@ A crude, rough and makeshift AHKv2 HTTP server.
 1. 实例化类`HttpServer`，同时传入端口号。  
 2. 调用类实例方法`SetPaths`传入URL路径对应的处理函数，变量类型`Map`。  
 3. 调用类实例方法`SetMimeType`传入如下格式的文件的路径，用于设置文件的MIME类型。
-```
-html: text/html
-jpg: image/jpeg
-```
+    ```
+    html: text/html
+    jpg: image/jpeg
+    ```
 ### 可选配置项
 |配置项|默认值|说明|
 | --- | --- | --- |

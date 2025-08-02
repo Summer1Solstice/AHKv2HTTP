@@ -11,8 +11,8 @@ path["/debug"] := debug
 Server := HttpServer(10000)
 Server.SetPaths(path)
 Server.SetMimeType("mime.types")
-Server.web := true	; 开启web服务
-Server.RejectExternalIP := false	; 不拒绝外部IP访问
+Server.web := false	; 关闭web服务
+Server.RejectExternalIP := true	; 拒绝外部IP访问
 
 root(req, res) {
     if Server.web {
