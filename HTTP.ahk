@@ -198,6 +198,7 @@ class HttpServer extends Socket.Server {
     res := Response()   ; 响应类
     web := false    ; 是否开启web功能
     RejectExternalIP := true  ; 是否拒绝外部IP连接
+
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
@@ -264,14 +265,20 @@ class HttpServer extends Socket.Server {
     ; 设置mime类型
     SetMimeType(file_path) {
         if not FileExist(file_path) {
-            throw TargetError
+            log := file_path " 文件不存在或路径错误"
+            HTTP.log(A_ThisFunc ": 设置mime类型时出错, " log)
+            throw TargetError(log)
+            return false
         }
         this.MimeType := HTTP.LoadMimes(file_path)
     }
     ; 设置请求路径对应的处理函数
     SetPaths(paths) {
         if not Type(paths) = "Map" {
-            throw TypeError()
+            log := "需要传入一个Map, 但传入的是 " Type(paths)
+            HTTP.log(A_ThisFunc ": " log)
+            throw TypeError(log)
+            return false
         }
         this.Path := paths
     }
@@ -285,7 +292,8 @@ class HttpServer extends Socket.Server {
     ; 设置响应体(文件)
     SetBodyFile(file_path) {
         if !FileExist(file_path) {
-            HTTP.log(file_path " 文件不存在或路径错误")
+            HTTP.log(Format("{1}: {2} 文件不存在或路径错误", A_ThisFunc, file_path))
+            this.Not_Found()
             return false
         }
         buffobj := FileRead(file_path, "Raw")
