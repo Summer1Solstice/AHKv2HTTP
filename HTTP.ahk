@@ -268,7 +268,6 @@ class HttpServer extends Socket.Server {
             log := file_path " 文件不存在或路径错误"
             HTTP.log(A_ThisFunc ": 设置mime类型时出错, " log)
             throw TargetError(log)
-            return false
         }
         this.MimeType := HTTP.LoadMimes(file_path)
     }
@@ -278,7 +277,6 @@ class HttpServer extends Socket.Server {
             log := "需要传入一个Map, 但传入的是 " Type(paths)
             HTTP.log(A_ThisFunc ": " log)
             throw TypeError(log)
-            return false
         }
         this.Path := paths
     }
