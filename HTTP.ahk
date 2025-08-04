@@ -61,14 +61,14 @@ class HTTP {
     }
     /**日志
      * @param Explain 日志说明
-     * @param {Integer} LogLevel ["DEBUG", "INFO", "WARN", "ERROR"]
+     * @param {Integer} logLevel ["DEBUG", "INFO", "WARN", "ERROR"]
      * @param {String} FuncName 当前函数名，自动获取
      */
-    static log(Explain, LogLevel := 4) {
-        static logLevelDict := ["DEBUG", "INFO", "WARN", "ERROR"]
+    static log(Explain, logLevel := 4) {
+        static logLevelDict := ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
         date := FormatTime(, "yyyy-MM-dd")
         time := FormatTime(, "HH:mm:ss")
-        Log := Format("{1} {} - {}`n", time, logLevelDict[LogLevel], Explain)
+        log := Format("{1} {} - {}`n", time, logLevelDict[logLevel], Explain)
         FileAppend(log, "logs\" date ".log", "utf-8")
     }
 }
@@ -211,7 +211,6 @@ class HttpServer extends Socket.Server {
                         return
                     }
                 }
-                ; HTTP.log("IP: " Socket.addr " 访问了 " this.req.Url, 2)
                 this.ParseRequest(Socket)
             }
         }
@@ -222,7 +221,7 @@ class HttpServer extends Socket.Server {
         this.res.__New()    ; 初始化响应类的属性
         if this.Path.Has(this.req.Url) {
             this.Path[this.req.Url](this.req, this.res) ; 执行请求
-        } else if this.web and not this.RejectExternalIP {
+        } else if this.web and this.RejectExternalIP {
             path := "." this.req.Url
             SplitPath(this.req.Url, , , &ext)
             if FileExist(path) and this.MimeType.Has(ext) {
