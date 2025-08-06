@@ -58,15 +58,11 @@ A crude, rough and makeshift AHKv2 HTTP server.
 
 ### TODO
 
-- [ ] 细化日志
+ - [x] 细化日志
 
-    ```
-    00:00:00 INFO - [OK] IP: 127.0.0.1:4572 请求了: /index.html
-    00:00:00 INFO - [NO] IP: 127.0.0.1:4572 请求了: /css/main.css
-    00:00:00 INFO - [OK] IP: 127.0.0.1:4572 访问了: /
-    00:00:00 INFO - [NO] IP: 127.0.0.1:4572 访问了: /css/main.css
-    ```
-
- - [ ] 优化`HTTP.log`  
-    日志等级前置、支持`D I W E`字母索引、支持可变参数传入或者更灵活的使用方法。
+ - [x] 优化`HTTP.log`  
+    日志等级前置、~~支持`D I W E`字母索引~~、~~支持可变参数传入或者~~更灵活的使用方法。
     
+ - [ ] 优化`ParseRequest`的If结构
+    > 闭包函数  
+    > Try/Catch

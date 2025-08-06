@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/07/04
- * @version 2.3.2
+ * @date 2025/08/06
+ * @version 2.4.0
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -59,18 +59,26 @@ class HTTP {
         }
         return MimeType
     }
-    /**日志
-     * @param Explain 日志说明
-     * @param {Integer} logLevel ["DEBUG", "INFO", "WARN", "ERROR"]
-     * @param {String} FuncName 当前函数名，自动获取
+    /**
+     * 日志
+     * @param {Integer} logLevel 日志等级 ["DEBUG", "INFO", "WARN", "ERROR"]
+     * @param {String} Explain 日志文本
      */
-    static log(Explain, logLevel := 4) {
-        static logLevelDict := ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
+    static log(logLevel := 1, Explain := "") {
+        static logLevelDict := ["DEBUG", "INFO", "WARN ", "ERROR", "FATAL"]
         date := FormatTime(, "yyyy-MM-dd")
         time := FormatTime(, "HH:mm:ss")
-        log := Format("{1} {} - {}`n", time, logLevelDict[logLevel], Explain)
+        log := Format("{1} {2} - {3}`n", time, logLevelDict[logLevel], Explain)
         FileAppend(log, "logs\" date ".log", "utf-8")
     }
+    ; 2: 信息
+    static INFO := HTTP.log.Bind(, 2)
+    ; 3: 警告
+    static WARN := HTTP.log.Bind(, 3)
+    ; 4: 错误
+    static ERROR := HTTP.log.Bind(, 4)
+    ; 5: 致命错误
+    static FATAL := HTTP.log.Bind(, 5)
 }
 ; 请求类
 ;@region Request
@@ -92,7 +100,7 @@ class Request {
             if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(this.Body) {
                 this.block := true
                 SetTimer(abc(*) => this.block = false, -3000)
-                HTTP.log("请求体不完整，疑似分块传输。")
+                HTTP.ERROR(Format("[{1}] 请求体不完整，疑似分块传输。", A_ThisFunc))
                 return false
             }
             this.block := false
@@ -102,11 +110,11 @@ class Request {
         LineEndPos := InStr(ReqMsg, "`r`n")    ; 获取消息行结束位置
         BodyStartPos := InStr(ReqMsg, "`r`n`r`n")  ; 获取消息体开始位置
         if not LineEndPos or not BodyStartPos {
-            HTTP.log("疑似常规请求，不满足HTTP协议要求。 " this.Request)
+            HTTP.ERROR(Format("[{1}] 疑似常规请求，不满足HTTP协议要求。{2}", A_ThisFunc, this.Request))
             return false
         }
         if not InStr(SubStr(ReqMsg, LineEndPos - 8, 8), "HTTP/") {
-            HTTP.log("没有找到HTTP协议版本。")
+            HTTP.ERROR(Format("[{1}] 没有找到HTTP协议版本。", A_ThisFunc))
             return false
         }
         line := SubStr(ReqMsg, 1, LineEndPos - 1)
@@ -135,7 +143,7 @@ class Request {
             GetArgs := HTTP.UrlUnescape(SubStr(this.Url, pos + 1))
             ArgsList := StrSplit(GetArgs, ["&", "="])
             if Mod(ArgsList.Length, 2) {
-                HTTP.log("GET请求参数错误。" this.Url, 3)
+                HTTP.WARN(Format("[{1}] GET请求参数错误。{2}", A_ThisFunc, this.Url))
                 ArgsList.Push("")
             }
             this.Url := SubStr(this.Url, 1, pos - 1)
@@ -149,7 +157,7 @@ class Request {
     ParseHeaders(msg) {
         HeadersList := StrSplit(msg, ["`r`n", ": "])
         if Mod(HeadersList.Length, 2) {
-            HTTP.log("解析失败，请求头没有成对出现。")
+            HTTP.ERROR(Format("[{1}] 解析失败，请求头没有成对出现。", A_ThisFunc))
             return false
         }
         this.Headers := Map(HeadersList*)
@@ -206,7 +214,7 @@ class HttpServer extends Socket.Server {
             if Socket.MsgSize() {
                 if this.RejectExternalIP {
                     if not (InStr(Socket.addr, "127.0.0.1") or InStr(Socket.addr, "192.168.")) {
-                        HTTP.log("已拒绝来自" Socket.addr "的请求", 3)
+                        HTTP.WARN("[HttpServer] 已拒绝来自" Socket.addr "的请求")
                         Socket.__Delete()
                         return
                     }
@@ -265,7 +273,7 @@ class HttpServer extends Socket.Server {
     SetMimeType(file_path) {
         if not FileExist(file_path) {
             log := file_path " 文件不存在或路径错误"
-            HTTP.log(A_ThisFunc ": 设置mime类型时出错, " log)
+            HTTP.FATAL(Format("[{1}] 设置mime类型时出错, {2}", A_ThisFunc, log))
             throw TargetError(log)
         }
         this.MimeType := HTTP.LoadMimes(file_path)
@@ -274,7 +282,7 @@ class HttpServer extends Socket.Server {
     SetPaths(paths) {
         if not Type(paths) = "Map" {
             log := "需要传入一个Map, 但传入的是 " Type(paths)
-            HTTP.log(A_ThisFunc ": " log)
+            HTTP.FATAL(Format("[{1}] {2}", A_ThisFunc, log))
             throw TypeError(log)
         }
         this.Path := paths
@@ -289,7 +297,7 @@ class HttpServer extends Socket.Server {
     ; 设置响应体(文件)
     SetBodyFile(file_path) {
         if !FileExist(file_path) {
-            HTTP.log(Format("{1}: {2} 文件不存在或路径错误", A_ThisFunc, file_path))
+            HTTP.ERROR(Format("[{1}] {2} 文件不存在或路径错误", A_ThisFunc, file_path))
             this.Not_Found()
             return false
         }
