@@ -63,8 +63,9 @@ A crude, rough and makeshift AHKv2 HTTP server.
  - [x] 优化`HTTP.log`  
     日志等级前置、~~支持`D I W E`字母索引~~、~~支持可变参数传入或者~~更灵活的使用方法。
     
- - [ ] 优化`ParseRequest`的If结构
-    > 闭包函数  
-    > Try/Catch
+ - [x] 优化`ParseRequest`的If结构。  
+    拆分成`Main`、`HandleRequest`、`HandleCallRequest`、`HandleWebRequest`4个函数。
+    > ~~闭包函数~~  
+    > ~~Try/Catch~~
 
  - [ ] 重写

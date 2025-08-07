@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 /************************************************************************
- * @date 2025/08/06
- * @version 2.4.0
+ * @date 2025/08/07
+ * @version 2.4.2
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -65,10 +65,10 @@ class HTTP {
      * @param {String} Explain 日志文本
      */
     static log(logLevel := 1, Explain := "") {
-        static logLevelDict := ["DEBUG", "INFO", "WARN ", "ERROR", "FATAL"]
+        static logLevelDict := ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
         date := FormatTime(, "yyyy-MM-dd")
         time := FormatTime(, "HH:mm:ss")
-        log := Format("{1} {2} - {3}`n", time, logLevelDict[logLevel], Explain)
+        log := Format("{1} {2:-5} - {3}`n", time, logLevelDict[logLevel], Explain)
         FileAppend(log, "logs\" date ".log", "utf-8")
     }
     ; 2: 信息
@@ -219,29 +219,50 @@ class HttpServer extends Socket.Server {
                         return
                     }
                 }
-                this.ParseRequest(Socket)
+                this.Main(Socket)
             }
         }
     }
-    ; 解析客户端请求
-    ParseRequest(Socket) {
+    ; 主函数
+    Main(Socket) {
         this.req.Parse(Socket.RecvText())   ; 解析请求
         this.res.__New()    ; 初始化响应类的属性
-        if this.Path.Has(this.req.Url) {
-            this.Path[this.req.Url](this.req, this.res) ; 执行请求
-        } else if this.web and this.RejectExternalIP {
-            path := "." this.req.Url
-            SplitPath(this.req.Url, , , &ext)
-            if FileExist(path) and this.MimeType.Has(ext) {
-                this.SetBodyFile(path)
-            } else {
-                this.Not_Found()
-            }
+        this.HandleRequest(Socket)  ; 处理请求
+        this.GenerateResponse(Socket)   ; 发送响应
+    }
+    ; 处理请求
+    HandleRequest(Socket) {
+        if this.HandleCallRequest(Socket) { ; 尝试处理调用请求
+            return true
+        } else if this.HandleWebRequest(Socket) {   ; 尝试处理Web请求
+            return true
         } else {
             this.Not_Found()
+            ; HTTP.INFO(Format("[NO] {1} 请求了 {2}", Socket.addr, this.req.Url))
         }
-        this.GenerateResponse(Socket)   ; 发送响应
-        ; this.DeBug()
+    }
+    ; 处理调用请求
+    HandleCallRequest(Socket) {
+        if not this.Path.Has(this.req.Url) {    ; 路由表中没有此路径，返回
+            return false
+        }
+        ; HTTP.INFO(Format("[OK] {1} 请求了 {2}", Socket.addr, this.req.Url))
+        this.Path[this.req.Url](this.req, this.res) ; 执行请求
+        return true
+    }
+    ; 处理Web请求
+    HandleWebRequest(Socket) {
+        if not (this.web and this.RejectExternalIP) {   ; web为真，拒绝外部IP连接为真，继续处理
+            return false
+        }
+        path := "." this.req.Url
+        SplitPath(this.req.Url, , , &ext)
+        if not (FileExist(path) and this.MimeType.Has(ext)) {
+            return false
+        }
+        this.SetBodyFile(path)
+        ; HTTP.INFO(Format("[OK] {1} 访问了 {2}", Socket.addr, this.req.Url))
+        return true
     }
     ; 生成响应
     GenerateResponse(Socket) {
@@ -316,6 +337,7 @@ class HttpServer extends Socket.Server {
         OutputDebug this.res.Response
         OutputDebug "`n=====================================================================`n"
     }
+    ; 404
     Not_Found() {
         this.res.sCode := 404
         this.res.sMsg := "Not Found"
