@@ -32,3 +32,12 @@ debug(req, res) {
     for k, v in req.headers
         res.Body .= k ": " v "`n"
 }
+; latency(req, res) {
+;     n := req.Body
+;     if IsInteger(n) and n >= 1 {
+;         res.Body := Collatz_Conjecture(n)
+;         HTTP.Log("latency: " n, 1)
+;         return true
+;     }
+;     HTTP.Log("latency:`n" n, 1)
+; }

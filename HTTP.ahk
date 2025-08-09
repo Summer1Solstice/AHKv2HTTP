@@ -132,6 +132,7 @@ class Request {
             this.ParseHeaders(headers)
             this.Body := body
         }
+        return true
     }
     ; 解析请求行
     ParseLine(msg) {
