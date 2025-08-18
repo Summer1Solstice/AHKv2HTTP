@@ -9,3 +9,4 @@ debug*.*
 debug*/
 !latency.sh 
 !index.html
+!*.drawio

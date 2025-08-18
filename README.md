@@ -66,3 +66,5 @@ A crude, rough and makeshift AHKv2 HTTP server.
  - [ ] 优化`ParseRequest`的If结构
     > 闭包函数  
     > Try/Catch
+
+ - [ ] 重写
