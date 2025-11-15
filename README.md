@@ -67,5 +67,5 @@ A crude, rough and makeshift AHKv2 HTTP server.
     拆分成`Main`、`HandleRequest`、`HandleCallRequest`、`HandleWebRequest`4个函数。
     > ~~闭包函数~~  
     > ~~Try/Catch~~
-
+ - [ ] 尝试优化请求体过长（极限大概是几KB）截断的问题，现有的处理逻辑会导致字符的字节丢失。
  - [ ] 重写

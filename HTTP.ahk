@@ -91,19 +91,19 @@ class Request {
         this.Headers := Map()   ; 请求头
         this.Body := "" ; 请求体
         this.GetQueryArgs := Map()  ; GET请求参数
-        this.block := false ; 是否分块传输
+        this.Block := false ; 是否分块传输
     }
     ; 处理请求
     Parse(ReqMsg) {
-        if this.block {
+        if this.Block {
             this.Body .= ReqMsg
             if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(this.Body) {
-                this.block := true
-                SetTimer(abc(*) => this.block = false, -3000)
+                this.Block := true
+                SetTimer(abc(*) => this.Block = false, -3000)
                 HTTP.ERROR(Format("[{1}] 请求体不完整，疑似分块传输。", A_ThisFunc))
                 return false
             }
-            this.block := false
+            this.Block := false
             return true
         }
         this.Request := ReqMsg
@@ -121,10 +121,10 @@ class Request {
         this.ParseLine(line)
         headers := SubStr(ReqMsg, LineEndPos + 2, BodyStartPos - LineEndPos - 2)
         body := SubStr(ReqMsg, BodyStartPos + 4)
-        if this.Method = "POST" and this.block = false {
+        if this.Method = "POST" and this.Block = false {
             if this.ParseHeaders(headers) {
                 if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
-                    this.block := true
+                    this.Block := true
                 }
                 this.Body := body
             }
