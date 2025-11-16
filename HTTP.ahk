@@ -90,48 +90,66 @@ class Request {
         this.Protocol := "HTTP/1.1" ; 请求协议
         this.Headers := Map()   ; 请求头
         this.Body := "" ; 请求体
+        this.BodyCharset := "utf-8"
         this.GetQueryArgs := Map()  ; GET请求参数
-        this.Block := false ; 是否分块传输
+        this.Block := [] ; 分块列表
+        this.BlockSize := 0
     }
     ; 处理请求
     Parse(ReqMsg) {
-        if this.Block {
-            this.Body .= ReqMsg
-            if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(this.Body) {
-                this.Block := true
-                SetTimer(abc(*) => this.Block = false, -3000)
-                HTTP.ERROR(Format("[{1}] 请求体不完整，疑似分块传输。", A_ThisFunc))
+        if this.Block.Length {
+            this.Block.Push(ReqMsg)
+            this.BlockSize += ReqMsg.size
+            if this.BlockSize = this.Headers.Get("Content-Length", 0) {
+                this.Body := Buffer(this.BlockSize)
+                temp_size := 0
+                for i in this.Block {    ; 合并分块
+                    DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", this.Body.ptr + temp_size, "Ptr", i.ptr, "UInt", i.size)
+                    temp_size += i.size
+                }
+                if this.Body.size = this.Headers.Get("Content-Length", 0) {
+                    this.Block := []
+                    this.BlockSize := 0
+                    return true
+                }
+                HTTP.ERROR(Format("[{1}] 合并失败", A_ThisFunc))
+                return false
+            } else {
                 return false
             }
-            this.Block := false
-            return true
         }
-        this.Request := ReqMsg
-        LineEndPos := InStr(ReqMsg, "`r`n")    ; 获取消息行结束位置
-        BodyStartPos := InStr(ReqMsg, "`r`n`r`n")  ; 获取消息体开始位置
+        msg := StrGet(ReqMsg, "utf-8")
+        LineEndPos := InStr(msg, "`r`n")    ; 获取消息行结束位置
+        BodyStartPos := InStr(msg, "`r`n`r`n")  ; 获取消息体开始位置
         if not LineEndPos or not BodyStartPos {
             HTTP.ERROR(Format("[{1}] 疑似常规请求，不满足HTTP协议要求。{2}", A_ThisFunc, this.Request))
             return false
         }
-        if not InStr(SubStr(ReqMsg, LineEndPos - 8, 8), "HTTP/") {
+        if not InStr(SubStr(msg, LineEndPos - 8, 8), "HTTP/") {
             HTTP.ERROR(Format("[{1}] 没有找到HTTP协议版本。", A_ThisFunc))
             return false
         }
-        line := SubStr(ReqMsg, 1, LineEndPos - 1)
+        line := SubStr(msg, 1, LineEndPos - 1)
         this.ParseLine(line)
-        headers := SubStr(ReqMsg, LineEndPos + 2, BodyStartPos - LineEndPos - 2)
-        body := SubStr(ReqMsg, BodyStartPos + 4)
-        if this.Method = "POST" and this.Block = false {
-            if this.ParseHeaders(headers) {
-                if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
-                    this.Block := true
-                }
-                this.Body := body
-            }
-        } else {
-            this.ParseHeaders(headers)
-            this.Body := body
+        headers := SubStr(msg, LineEndPos + 2, BodyStartPos - LineEndPos - 2)
+        if not this.ParseHeaders(headers) {
+            return false
         }
+        if this.Method = "POST" and this.Block.Length = 0 {
+            if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
+                temp := StrPut(SubStr(msg, 1, BodyStartPos + 2), "utf-8")
+                if temp {
+                    body := Buffer(ReqMsg.size - temp)
+                    DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + temp, "UInt", ReqMsg.size - temp)
+                    this.Block.Push(body)
+                    this.BlockSize += body.size
+                }
+                return false
+            }
+        }
+        body := SubStr(msg, BodyStartPos + 4)
+        this.Body := body
+        this.Request := msg
         return true
     }
     ; 解析请求行
@@ -162,6 +180,9 @@ class Request {
             return false
         }
         this.Headers := Map(HeadersList*)
+        if this.Headers.Has("Content-Type") and Cpos := InStr(this.Headers["Content-Type"], "charset=") {
+            this.BodyCharset := SubStr(this.Headers["Content-Type"], Cpos + 8)
+        }
         return true
     }
 }
@@ -223,13 +244,19 @@ class HttpServer extends Socket.Server {
                 this.Main(Socket)
             }
         }
+        this.client.onClose := onclose
+        onclose(Socket, err) {
+            HTTP.INFO("[HttpServer] " Socket.addr " 已断开连接, 即将清理内存...")
+            this.req.__New()
+        }
     }
     ; 主函数
     Main(Socket) {
-        this.req.Parse(Socket.RecvText())   ; 解析请求
-        this.res.__New()    ; 初始化响应类的属性
-        this.HandleRequest(Socket)  ; 处理请求
-        this.GenerateResponse(Socket)   ; 发送响应
+        if this.req.Parse(Socket.Recv()) {   ; 解析请求
+            this.res.__New()    ; 初始化响应类的属性
+            this.HandleRequest(Socket)  ; 处理请求
+            this.GenerateResponse(Socket)   ; 发送响应
+        }
     }
     ; 处理请求
     HandleRequest(Socket) {
@@ -330,6 +357,14 @@ class HttpServer extends Socket.Server {
             ? this.res.Headers["Content-Type"] := this.MimeType[ext]
             : this.res.Headers["Content-Type"] := "text/plain"
         this.res.Body := buffobj
+    }
+    ; 获取请求体
+    GetReqBody() {
+        if this.req.Body is String {
+            return this.req.Body
+        } else {
+            return StrGet(this.req.Body, this.req.Body.size, this.req.BodyCharset)
+        }
     }
     ; DEBUG
     DeBug() {
