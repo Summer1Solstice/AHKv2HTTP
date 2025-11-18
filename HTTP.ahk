@@ -135,6 +135,7 @@ class Request {
         if not this.ParseHeaders(headers) {
             return false
         }
+        body := SubStr(msg, BodyStartPos + 4)
         if this.Method = "POST" and this.Block.Length = 0 {
             if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
                 temp := StrPut(SubStr(msg, 1, BodyStartPos + 2), "utf-8")
@@ -147,7 +148,6 @@ class Request {
                 return false
             }
         }
-        body := SubStr(msg, BodyStartPos + 4)
         this.Body := body
         this.Request := msg
         return true
