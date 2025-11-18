@@ -73,4 +73,4 @@ A crude, rough and makeshift AHKv2 HTTP server.
     > ~~闭包函数~~  
     > ~~Try/Catch~~
  - [x] 尝试优化请求体过长（极限大概是几KB）截断的问题，现有的处理逻辑会导致字符的字节丢失。
- - [ ] 重写
+ ~~- [ ] 重写。没有方向搁置~~

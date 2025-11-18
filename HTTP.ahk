@@ -246,7 +246,7 @@ class HttpServer extends Socket.Server {
         }
         this.client.onClose := onclose
         onclose(Socket, err) {
-            HTTP.INFO("[HttpServer] " Socket.addr " 已断开连接, 即将清理内存...")
+            ; HTTP.INFO("[HttpServer] " Socket.addr " 已断开连接, 即将清理内存...")
             this.req.__New()
         }
     }
