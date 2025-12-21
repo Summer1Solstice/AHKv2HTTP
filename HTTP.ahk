@@ -4,6 +4,9 @@
  * @version 3.0.0
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
+aaaa(a) {
+    return StrReplace(StrReplace(a, "`n", "\n"), "`r", "\r") "`n"
+}
 ;@region LogMsgText
 BLOCK_MERGE_FAILED := "块合并失败"
 NOT_A_STANDARD_HTTP_REQUEST := "不是标准的HTTP请求"
@@ -92,11 +95,12 @@ class Request {
         this.Block := [] ; 分块列表
         this.BlockSize := 0
     }
+    ;@region Parse
     Parse(ReqMsg) {
         if this.Block.Length {
             this.Block.Push(ReqMsg)
             this.BlockSize += ReqMsg.size
-            OutputDebug this.BlockSize " " this.Headers.Get("Content-Length", 0) "`n"
+            ; OutputDebug this.BlockSize " " this.Headers.Get("Content-Length", 0) "`n"
             if this.BlockSize != this.Headers.Get("Content-Length", 0) {
                 return
             }
@@ -114,15 +118,22 @@ class Request {
             Log.Error(Block_MERGE_FAILED)
             return 500
         }
+        ;@region line&head
         msg := StrGet(ReqMsg, "utf-8")
+        ; 以下pos不包含最末尾的\r\n
         LineEndPos := InStr(msg, "`r`n") - 1    ; 获取消息行结束位置
-        HeadersPos := { start: LineEndPos + 3, end: InStr(msg, "`r`n`r`n") - 1 }
-        BodyPos := HeadersPos.end + 5
+        HeadersPos := { start: LineEndPos + 3, end: InStr(msg, "`r`n`r`n") }
+        BodyStartPos := HeadersPos.end + 4
+        ; OutputDebug aaaa(SubStr(msg, 1, LineEndPos)) "`n"
+        ; OutputDebug aaaa(SubStr(msg, HeadersPos.start, HeadersPos.end - HeadersPos.start)) "`n"
+        ; OutputDebug aaaa(SubStr(msg, BodyStartPos)) "`n"
+        ; OutputDebug aaaa(SubStr(msg, 1, BodyStartPos - 1))
+        ; Pause()
         if LineEndPos < 0 or HeadersPos.end < 0 {
             Log.Error(NOT_A_STANDARD_HTTP_REQUEST)
             return 400
         }
-        if not InStr(SubStr(msg, LineEndPos - 7, 7), "HTTP/") {
+        if not InStr(SubStr(msg, LineEndPos - 9, 8), "HTTP/") {
             Log.Error(NOT_A_STANDARD_HTTP_REQUEST)
             return 400
         }
@@ -131,15 +142,16 @@ class Request {
         } else if Code := this.ParseHeaders(SubStr(msg, HeadersPos.start, HeadersPos.end - HeadersPos.start)) {
             return Code
         }
-        body := SubStr(msg, BodyPos)
+        body := SubStr(msg, BodyStartPos)
         if this.Method = "POST" and this.Block.Length = 0 {
             if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
-                temp := StrPut(SubStr(msg, 1, BodyPos), "utf-8") - 1    ;请求体的长度
+                temp := StrPut(SubStr(msg, 1, BodyStartPos - 2), "utf-8")    ;请求体的长度
                 if temp {
                     body := Buffer(ReqMsg.size - temp)
                     DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + temp, "UInt", ReqMsg.size - temp)
                     this.Block.Push(body)
                     this.BlockSize += body.size
+                    ; OutputDebug this.BlockSize "`n"
                 }
                 return
             }
@@ -148,6 +160,7 @@ class Request {
         this.Request := msg
         return 0
     }
+    ;@region ParseLine
     ParseLine(Line) {
         LineList := StrSplit(Line, A_Space)
         this.Method := LineList[1]
@@ -167,6 +180,7 @@ class Request {
         this.GetQueryArgs := Map(ArgsList*)
         return 0
     }
+    ;@region ParseHeaders
     ParseHeaders(Headers) {
         HeadersList := StrSplit(Headers, ["`r`n", ": "])
         if HeadersList.Length & 1 {
@@ -238,12 +252,19 @@ class HttpServer extends Socket.Server {
                         return
                     }
                 }
+                ; OutputDebug 1 "`n"
                 this.Main(Socket)
-                OutputDebug 1 "`n"
             }
         }
         this.client.onClose := onclose
         onclose(Socket, err) {
+            ; this.Req.Body := Buffer(this.Req.BlockSize)
+            ; Size := 0
+            ; for i in this.Req.Block {
+            ;     DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", this.Req.Body.ptr + Size, "Ptr", i.ptr, "UInt", i.size)
+            ;     Size += i.size
+            ; }
+            ; this.Path["/hash"](this.Req, this.Res)
             OutputDebug("[HttpServer] " Socket.addr "已关闭")
             this.Req.__New()
         }

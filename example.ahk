@@ -47,11 +47,11 @@ echo(req, res) {
 ;     HTTP.Log("latency:`n" n, 1)
 ; }
 hash(req, res) {
-    try FileDelete "hash.txt"
-    FileAppend(req.Body, "hash.txt", "utf-8 Raw")
+    try FileDelete "hash"
+    FileAppend(req.Body, "hash", "Raw")
     OutputDebug req.Headers["hash"] "`n"
-    OutputDebug md5sum("hash.txt") "`n"
-    if req.Headers["hash"] = md5sum("hash.txt") {
+    OutputDebug md5sum("hash") "`n"
+    if req.Headers["hash"] = md5sum("hash") {
         OutputDebug "Yes"
     } else {
         OutputDebug "No"
