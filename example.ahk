@@ -5,9 +5,9 @@ Persistent
 path := Map()
 path["/"] := root
 path["/logo"] := logo
-path["/debug"] := debug
-path["/hash"] := hash
-path["/echo"] := echo
+; path["/debug"] := debug
+; path["/hash"] := hash
+; path["/echo"] := echo
 ; path["/latency"] := latency
 
 Server := HttpServer(10000)
@@ -16,6 +16,17 @@ Server.SetMimeType("mimetypes")
 Server.web := false	; 是否开启web服务
 Server.IPRestrict := true	; 拒绝外部IP访问
 
+; hash(req, res) {
+;     try FileDelete "hash.txt"
+;     FileAppend(req.Body, "hash.txt", "utf-8 Raw")
+;     OutputDebug req.Headers["hash"] "`n"
+;     OutputDebug md5sum("hash.txt") "`n"
+;     if req.Headers["hash"] = md5sum("hash.txt") {
+;         OutputDebug "Yes"
+;     } else {
+;         OutputDebug "No"
+;     }
+; }
 root(req, res) {
     if Server.web {
         Server.SetBodyFile(".\index.html")
