@@ -100,7 +100,7 @@ class Request {
         if this.Block.Length {
             this.Block.Push(ReqMsg)
             this.BlockSize += ReqMsg.size
-            ; OutputDebug this.BlockSize " " this.Headers.Get("Content-Length", 0) "`n"
+            OutputDebug this.BlockSize " " this.Headers.Get("Content-Length", 0) "`n"
             if this.BlockSize != this.Headers.Get("Content-Length", 0) {
                 return
             }
@@ -145,7 +145,7 @@ class Request {
         body := SubStr(msg, BodyStartPos)
         if this.Method = "POST" and this.Block.Length = 0 {
             if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
-                temp := StrPut(SubStr(msg, 1, BodyStartPos - 2), "utf-8")    ;请求体的长度
+                temp := StrPut(SubStr(msg, 1, HeadersPos.end + 2), "utf-8")    ;请求体的长度
                 if temp {
                     body := Buffer(ReqMsg.size - temp)
                     DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + temp, "UInt", ReqMsg.size - temp)
