@@ -1,26 +1,52 @@
-#Requires AutoHotkey v2.0
+#RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2025/08/07
- * @version 2.4.2
+ * @date 2025/12/21
+ * @version 3.0.0
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
-
-;@region HTTP
-class HTTP {
+;@region LogMsgText
+BLOCK_MERGE_FAILED := "块合并失败"
+NOT_A_STANDARD_HTTP_REQUEST := "不是标准的HTTP请求"
+QUERY_PARAMETER_ERROR := "查询参数错误"
+REQUEST_HEADER_ERROR := "请求头错误"
+;@region log
+class Log {
     static __New() {
         if not DirExist("logs") {
             DirCreate("logs")
         }
     }
+    ; 写入日志
+    static Write(LogLevel, Text, Fn) {
+        Date := FormatTime(, "yyyy-MM-dd")
+        Time := FormatTime(, "HH:mm:ss")
+        Text := Fn ? Format("[{1}] {2}", Fn, Text) : Text
+        Log := Format("{1} {2:-5} - {3}`n", Time, logLevel, Text)
+        FileAppend(Log, "logs\" Date ".log", "utf-8")
+    }
+    ; 调试
+    static Debug(Text, Fn := A_ThisFunc) => this.Write("DEBUG", Text, Fn)
+    ; 信息
+    static Info(Text, Fn := A_ThisFunc) => this.Write("INFO", Text, Fn)
+    ; 警告
+    static Warn(Text, Fn := A_ThisFunc) => this.Write("WARN", Text, Fn)
+    ; 错误
+    static Error(Text, Fn := A_ThisFunc) => this.Write("ERROR", Text, Fn)
+    ; 严重错误
+    static Fatal(Text, Fn := A_ThisFunc) => this.Write("FATAL", Text, Fn)
+}
+;@region Http
+class Http {
     ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
         return StrPut(str, encoding) - ((encoding = "UTF-16" or encoding = "CP1200") ? 2 : 1)
     }
+    ; 获取body字节长度
     static GetBodySize(Body) {
         if Type(Body) = "Buffer" {
             return Body.size
         } else {
-            return HTTP.GetStrSize(Body)
+            return Http.GetStrSize(Body)
         }
     }
     ; URL编码
@@ -33,52 +59,24 @@ class HTTP {
     }
     ; URL解码
     static UrlUnescape(i) {
-        ; https://github.com/thqby/ahk2_lib/blob/244adbe197639f03db314905f839fd7b54ce9340/HttpServer.ahk#L473-L484
+        ; https://github.com/thqby/ahk2_lib/blob/244adbe197639f03db314905f839fd7b54ce9340/LogServer.ahk#L473-L484
         DllCall('shlwapi\UrlUnescape', 'str', i, 'ptr', 0, 'uint*', 0, 'uint', 0x140000)
         return i
     }
     ; 解析mime类型文件
-    static LoadMimes(file_path) {    ;考虑优化为JSON
-        FileConent := FileRead(file_path, "`n")
+    static LoadMimes(FilePath) {    ;考虑优化为JSON
+        FileConent := FileRead(FilePath, "`n")
         MimeType := Map()
         MimeType.CaseSense := false
-        if InStr(FileConent, ": ") {
-            for i in StrSplit(FileConent, "`n") {
-                i := StrSplit(i, ": ")
-                MimeType.Set(i*)
-            }
-        } else {
-            for i in StrSplit(FileConent, "`n") {
-                Types := SubStr(i, 1, InStr(i, A_Space) - 1)
-                i := StrReplace(i, Types)
-                i := LTrim(i)
-                for i in StrSplit(i, A_Space) {
-                    MimeType[i] := Types
-                }
+        for i in StrSplit(FileConent, "`n") {
+            if InStr(i, ":") {
+                MimeType.Set(StrSplit(i, ":", A_Space "" A_Tab)*)
+            } else if InStr(i, A_Tab) {
+                MimeType.Set(StrSplit(i, A_Tab)*)
             }
         }
         return MimeType
     }
-    /**
-     * 日志
-     * @param {Integer} logLevel 日志等级 ["DEBUG", "INFO", "WARN", "ERROR"]
-     * @param {String} Explain 日志文本
-     */
-    static log(logLevel := 1, Explain := "") {
-        static logLevelDict := ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
-        date := FormatTime(, "yyyy-MM-dd")
-        time := FormatTime(, "HH:mm:ss")
-        log := Format("{1} {2:-5} - {3}`n", time, logLevelDict[logLevel], Explain)
-        FileAppend(log, "logs\" date ".log", "utf-8")
-    }
-    ; 2: 信息
-    static INFO := HTTP.log.Bind(, 2)
-    ; 3: 警告
-    static WARN := HTTP.log.Bind(, 3)
-    ; 4: 错误
-    static ERROR := HTTP.log.Bind(, 4)
-    ; 5: 致命错误
-    static FATAL := HTTP.log.Bind(, 5)
 }
 ; 请求类
 ;@region Request
@@ -90,104 +88,97 @@ class Request {
         this.Protocol := "HTTP/1.1" ; 请求协议
         this.Headers := Map()   ; 请求头
         this.Body := "" ; 请求体
-        this.BodyCharset := "utf-8"
         this.GetQueryArgs := Map()  ; GET请求参数
         this.Block := [] ; 分块列表
         this.BlockSize := 0
     }
-    ; 处理请求
     Parse(ReqMsg) {
         if this.Block.Length {
             this.Block.Push(ReqMsg)
             this.BlockSize += ReqMsg.size
-            if this.BlockSize = this.Headers.Get("Content-Length", 0) {
-                this.Body := Buffer(this.BlockSize)
-                temp_size := 0
-                for i in this.Block {    ; 合并分块
-                    DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", this.Body.ptr + temp_size, "Ptr", i.ptr, "UInt", i.size)
-                    temp_size += i.size
-                }
-                if this.Body.size = this.Headers.Get("Content-Length", 0) {
-                    this.Block := []
-                    this.BlockSize := 0
-                    return true
-                }
-                HTTP.ERROR(Format("[{1}] 合并失败", A_ThisFunc))
-                return false
-            } else {
-                return false
+            OutputDebug this.BlockSize " " this.Headers.Get("Content-Length", 0) "`n"
+            if this.BlockSize != this.Headers.Get("Content-Length", 0) {
+                return
             }
+            this.Body := Buffer(this.BlockSize)
+            Size := 0
+            for i in this.Block {
+                DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", this.Body.ptr + Size, "Ptr", i.ptr, "UInt", i.size)
+                Size += i.size
+            }
+            if Size = this.Headers.Get("Content-Length", 0) {
+                this.Block := []
+                this.BlockSize := 0
+                return 0
+            }
+            Log.Error(Block_MERGE_FAILED)
+            return 500
         }
         msg := StrGet(ReqMsg, "utf-8")
-        LineEndPos := InStr(msg, "`r`n")    ; 获取消息行结束位置
-        BodyStartPos := InStr(msg, "`r`n`r`n")  ; 获取消息体开始位置
-        if not LineEndPos or not BodyStartPos {
-            HTTP.ERROR(Format("[{1}] 疑似常规请求，不满足HTTP协议要求。{2}", A_ThisFunc, this.Request))
-            return false
+        LineEndPos := InStr(msg, "`r`n") - 1    ; 获取消息行结束位置
+        HeadersPos := { start: LineEndPos + 3, end: InStr(msg, "`r`n`r`n") - 1 }
+        BodyPos := HeadersPos.end + 5
+        if LineEndPos < 0 or HeadersPos.end < 0 {
+            Log.Error(NOT_A_STANDARD_HTTP_REQUEST)
+            return 400
         }
-        if not InStr(SubStr(msg, LineEndPos - 8, 8), "HTTP/") {
-            HTTP.ERROR(Format("[{1}] 没有找到HTTP协议版本。", A_ThisFunc))
-            return false
+        if not InStr(SubStr(msg, LineEndPos - 7, 7), "HTTP/") {
+            Log.Error(NOT_A_STANDARD_HTTP_REQUEST)
+            return 400
         }
-        line := SubStr(msg, 1, LineEndPos - 1)
-        this.ParseLine(line)
-        headers := SubStr(msg, LineEndPos + 2, BodyStartPos - LineEndPos - 2)
-        if not this.ParseHeaders(headers) {
-            return false
+        if Code := this.ParseLine(SubStr(msg, 1, LineEndPos)) {
+            return Code
+        } else if Code := this.ParseHeaders(SubStr(msg, HeadersPos.start, HeadersPos.end - HeadersPos.start)) {
+            return Code
         }
-        body := SubStr(msg, BodyStartPos + 4)
+        body := SubStr(msg, BodyPos)
         if this.Method = "POST" and this.Block.Length = 0 {
             if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
-                temp := StrPut(SubStr(msg, 1, BodyStartPos + 2), "utf-8")
+                temp := StrPut(SubStr(msg, 1, BodyPos), "utf-8") - 1    ;请求体的长度
                 if temp {
                     body := Buffer(ReqMsg.size - temp)
                     DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + temp, "UInt", ReqMsg.size - temp)
                     this.Block.Push(body)
                     this.BlockSize += body.size
                 }
-                return false
+                return
             }
         }
         this.Body := body
         this.Request := msg
-        return true
+        return 0
     }
-    ; 解析请求行
-    ParseLine(msg) {
-        LineList := StrSplit(msg, A_Space)
+    ParseLine(Line) {
+        LineList := StrSplit(Line, A_Space)
         this.Method := LineList[1]
         this.Url := LineList[2]
         this.Protocol := LineList[3]
-        if LineList[1] = "GET" and pos := InStr(this.Url, "?") {    ; 使用问号判断可能有点草率
-            GetArgs := HTTP.UrlUnescape(SubStr(this.Url, pos + 1))
-            ArgsList := StrSplit(GetArgs, ["&", "="])
-            if Mod(ArgsList.Length, 2) {
-                HTTP.WARN(Format("[{1}] GET请求参数错误。{2}", A_ThisFunc, this.Url))
-                ArgsList.Push("")
-            }
-            this.Url := SubStr(this.Url, 1, pos - 1)
-            this.GetQueryArgs := Map(ArgsList*)
-        } else {
+        if not Pos := InStr(this.Url, "?") {
             this.GetQueryArgs := Map()
+            return 0
         }
-        return true
+        GetArgs := HTTP.UrlUnescape(SubStr(this.Url, pos + 1))
+        ArgsList := StrSplit(GetArgs, ["&", "="])
+        if ArgsList.Length & 1 {
+            Log.Error(QUERY_PARAMETER_ERROR)
+            return 400
+        }
+        this.Url := SubStr(this.Url, 1, pos - 1)
+        this.GetQueryArgs := Map(ArgsList*)
+        return 0
     }
-    ; 解析请求头
-    ParseHeaders(msg) {
-        HeadersList := StrSplit(msg, ["`r`n", ": "])
-        if Mod(HeadersList.Length, 2) {
-            HTTP.ERROR(Format("[{1}] 解析失败，请求头没有成对出现。", A_ThisFunc))
-            return false
+    ParseHeaders(Headers) {
+        HeadersList := StrSplit(Headers, ["`r`n", ": "])
+        if HeadersList.Length & 1 {
+            Log.Error(REQUEST_HEADER_ERROR)
+            return 400
         }
         this.Headers := Map(HeadersList*)
-        if this.Headers.Has("Content-Type") and Cpos := InStr(this.Headers["Content-Type"], "charset=") {
-            this.BodyCharset := SubStr(this.Headers["Content-Type"], Cpos + 8)
-        }
-        return true
+        return 0
     }
 }
 ;@region Response
-class Response extends HTTP {
+class Response {
     __New() {
         this.Response := "" ; 原始响应消息
         this.Line := "HTTP/1.1" ; 响应协议
@@ -224,97 +215,111 @@ class Response extends HTTP {
 class HttpServer extends Socket.Server {
     Path := Map()   ; 路由表
     MimeType := Map()   ; Mime类型表
-    req := Request()    ; 请求类
-    res := Response()   ; 响应类
-    web := false    ; 是否开启web功能
-    RejectExternalIP := true  ; 是否拒绝外部IP连接
-
+    Req := Request()    ; 请求类
+    Res := Response()   ; 响应类
+    Web := false    ; 是否开启web功能
+    IPRestrict := true  ; 是否开启IP限制
+    CallbackFn := Map()
+    ErrorResMsg := Map(
+        400, { sCode: 400, sMsg: 'Bad Request', Body: "400 Bad Request" },
+        403, { sCode: 403, sMsg: 'Forbidden', Body: "403 Forbidden" },
+        404, { sCode: 404, sMsg: 'Not Found', Body: "404 Not Found" },
+        500, { sCode: 500, sMsg: 'Internal Server Error', Body: "500 Internal Server Error" }
+    )
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
         onread(Socket, err) {
             if Socket.MsgSize() {
-                if this.RejectExternalIP {
-                    if not (InStr(Socket.addr, "127.0.0.1") or InStr(Socket.addr, "192.168.")) {
-                        HTTP.WARN("[HttpServer] 已拒绝来自" Socket.addr "的请求")
+                if this.IPRestrict {
+                    if this.CallbackFn.Has("IPAudit") and not this.CallbackFn["IPAudit"](Socket.addr, "Access") {
+                        Log.Warn("[HttpServer] 已拒绝来自" Socket.addr "的请求")
                         Socket.__Delete()
                         return
                     }
                 }
                 this.Main(Socket)
+                OutputDebug 1 "`n"
             }
         }
         this.client.onClose := onclose
         onclose(Socket, err) {
-            ; HTTP.INFO("[HttpServer] " Socket.addr " 已断开连接, 即将清理内存...")
-            this.req.__New()
+            OutputDebug("[HttpServer] " Socket.addr "已关闭")
+            this.Req.__New()
         }
     }
-    ; 主函数
     Main(Socket) {
-        if this.req.Parse(Socket.Recv()) {   ; 解析请求
-            this.res.__New()    ; 初始化响应类的属性
-            this.HandleRequest(Socket)  ; 处理请求
-            this.GenerateResponse(Socket)   ; 发送响应
+        Code := this.Req.Parse(Socket.Recv())
+        if Code = 0 {
+            this.Res.__New()
+        } else if Code = "" {
+            return
+        } else {
+            this.ErrorResponse(Code)
+            this.SendResponse(Socket)   ; 发送响应
+            return Code
         }
+        if Code := this.HandleRequest(Socket) {  ; 处理请求
+            this.ErrorResponse(Code)
+            this.SendResponse(Socket)
+            return Code
+        }
+        return this.SendResponse(Socket)
     }
     ; 处理请求
     HandleRequest(Socket) {
-        if this.HandleCallRequest(Socket) { ; 尝试处理调用请求
-            return true
-        } else if this.HandleWebRequest(Socket) {   ; 尝试处理Web请求
-            return true
+        if not Code := this.HandleCallRequest(Socket) { ; 尝试处理调用请求
+            return 0
+        } else if this.Web and not Code := this.HandleWebRequest(Socket) { ; 尝试处理文件请求
+            return 0
         } else {
-            this.Not_Found()
-            ; HTTP.INFO(Format("[NO] {1} 请求了 {2}", Socket.addr, this.req.Url))
+            return Code
         }
     }
     ; 处理调用请求
     HandleCallRequest(Socket) {
         if not this.Path.Has(this.req.Url) {    ; 路由表中没有此路径，返回
-            return false
+            return 404
         }
-        ; HTTP.INFO(Format("[OK] {1} 请求了 {2}", Socket.addr, this.req.Url))
         this.Path[this.req.Url](this.req, this.res) ; 执行请求
-        return true
+        return 0
     }
     ; 处理Web请求
     HandleWebRequest(Socket) {
-        if not (this.web and this.RejectExternalIP) {   ; web为真，拒绝外部IP连接为真，继续处理
-            return false
+        if this.CallbackFn.Has("IPAudit") and not this.CallbackFn["IPAudit"](Socket.addr, "Web") {
+            return 403
         }
         path := "." this.req.Url
         SplitPath(this.req.Url, , , &ext)
         if not (FileExist(path) and this.MimeType.Has(ext)) {
-            return false
+            return 404
         }
         this.SetBodyFile(path)
-        ; HTTP.INFO(Format("[OK] {1} 访问了 {2}", Socket.addr, this.req.Url))
-        return true
+        return 0
     }
-    ; 生成响应
-    GenerateResponse(Socket) {
+    ; 返回响应
+    SendResponse(Socket) {
         ; 根据请求方法设置响应
-        if this.req.Method = "HEAD" {
-            this.res.Body := ""
-        } else if this.req.Method = "TRACE" {
-            this.SetBodyText(this.req.Request)
-        } else if this.req.Method = "OPTIONS" {
-            this.res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
+        if this.Req.Method = "HEAD" {
+            this.Res.Body := ""
+        } else if this.Req.Method = "TRACE" {
+            this.SetBodyText(this.Req.Request)
+        } else if this.Req.Method = "OPTIONS" {
+            this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
         }
         ; 设置响应头
-        this.res.Headers["Content-Location"] := this.req.Url
-        this.res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
-        this.res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
+        this.Res.Headers["Content-Location"] := this.Req.Url
+        this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
+        this.Res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
         ; 根据body类型发送响应
-        if Type(this.res.Body) = "Buffer" {
-            Socket.SendText(this.res.Generate())
-            Socket.Send(this.res.Body)
+        if Type(this.Res.Body) = "Buffer" {
+            Socket.SendText(this.Res.Generate())
+            Socket.Send(this.Res.Body)
         } else {
-            Socket.SendText(this.res.Generate())
+            Socket.SendText(this.Res.Generate())
         }
         ; 调试输出
-        if this.req.Url = "/debug" or this.req.Method = "TRACE" {
+        if this.Req.Url = "/debug" or this.Req.Method = "TRACE" {
             this.DeBug()
         }
     }
@@ -322,7 +327,6 @@ class HttpServer extends Socket.Server {
     SetMimeType(file_path) {
         if not FileExist(file_path) {
             log := file_path " 文件不存在或路径错误"
-            HTTP.FATAL(Format("[{1}] 设置mime类型时出错, {2}", A_ThisFunc, log))
             throw TargetError(log)
         }
         this.MimeType := HTTP.LoadMimes(file_path)
@@ -331,7 +335,6 @@ class HttpServer extends Socket.Server {
     SetPaths(paths) {
         if not Type(paths) = "Map" {
             log := "需要传入一个Map, 但传入的是 " Type(paths)
-            HTTP.FATAL(Format("[{1}] {2}", A_ThisFunc, log))
             throw TypeError(log)
         }
         this.Path := paths
@@ -346,8 +349,8 @@ class HttpServer extends Socket.Server {
     ; 设置响应体(文件)
     SetBodyFile(file_path) {
         if !FileExist(file_path) {
-            HTTP.ERROR(Format("[{1}] {2} 文件不存在或路径错误", A_ThisFunc, file_path))
-            this.Not_Found()
+            Log.Error(Format("{1} 文件不存在或路径错误", file_path))
+            this.ErrorResponse(404)
             return false
         }
         buffobj := FileRead(file_path, "Raw")
@@ -363,7 +366,7 @@ class HttpServer extends Socket.Server {
         if this.req.Body is String {
             return this.req.Body
         } else {
-            return StrGet(this.req.Body, this.req.Body.size, this.req.BodyCharset)
+            return StrGet(this.req.Body, this.req.Body.size, "UTF-8")
         }
     }
     ; DEBUG
@@ -373,10 +376,10 @@ class HttpServer extends Socket.Server {
         OutputDebug this.res.Response
         OutputDebug "`n=====================================================================`n"
     }
-    ; 404
-    Not_Found() {
-        this.res.sCode := 404
-        this.res.sMsg := "Not Found"
-        this.res.Body := "404 Not Found"
+    ; 设置错误响应
+    ErrorResponse(code) {
+        this.Res.sCode := this.ErrorResMsg[code].sCode
+        this.Res.sMsg := this.ErrorResMsg[code].sMsg
+        this.Res.Body := this.ErrorResMsg[code].Body
     }
 }
