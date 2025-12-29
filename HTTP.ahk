@@ -246,7 +246,7 @@ class HttpServer extends Socket.Server {
     Res := Response()   ; 响应类
     Web := false    ; 是否开启web功能
     IPRestrict := true  ; 是否开启IP限制
-    CallbackFn := Map()
+    CallbackFunc := Map()
     ErrorResMsg := Map(
         ; 4xx 客户端错误状态码
         400, { sCode: 400, sMsg: 'Bad Request', Body: "400 Bad Request" }, ; 请求语法错误或参数有误，服务器无法理解
@@ -272,8 +272,8 @@ class HttpServer extends Socket.Server {
             if Socket.MsgSize() {
                 ; IP访问控制检查
                 if this.IPRestrict {
-                    if this.CallbackFn.Has("IPAudit") and not this.CallbackFn["IPAudit"](Socket.addr, "Access") {
-                        Log.Warn(Format("REQUEST_DENIED_FROM_",Socket.addr),"")
+                    if this.CallbackFunc.Has("IPAudit") and not this.CallbackFunc["IPAudit"](Socket.addr, "Access") {
+                        Log.Warn(Format("REQUEST_DENIED_FROM_", Socket.addr), "")
                         Socket.__Delete()
                         return
                     }
@@ -330,7 +330,7 @@ class HttpServer extends Socket.Server {
     ; 处理Web请求
     HandleWebRequest(Socket) {
         ; Web访问IP控制检查
-        if this.CallbackFn.Has("IPAudit") and not this.CallbackFn["IPAudit"](Socket.addr, "Web") {
+        if this.CallbackFunc.Has("IPAudit") and not this.CallbackFunc["IPAudit"](Socket.addr, "Web") {
             return 403
         }
         Path := "." this.Req.Url
@@ -392,7 +392,7 @@ class HttpServer extends Socket.Server {
     ; 设置响应体(文件)
     SetBodyFile(FilePath) {
         if !FileExist(FilePath) {
-            Log.Error(Format("{1} {2}", FilePath,FILE_NOT_FOUND_OR_PATH_ERROR))
+            Log.Error(Format("{1} {2}", FilePath, FILE_NOT_FOUND_OR_PATH_ERROR))
             this.SetErrorResponse(404)
             return false
         }
@@ -405,11 +405,11 @@ class HttpServer extends Socket.Server {
         this.Res.Body := BuffObj
     }
     ; 获取请求体
-    GetReqBody() {
+    GetReqBodyText(encoding:="UTF-8") {
         if this.Req.Body is String {
             return this.Req.Body
         } else {
-            return StrGet(this.Req.Body, this.Req.Body.size, "UTF-8")
+            return StrGet(this.Req.Body, this.Req.Body.size, encoding)
         }
     }
     ; DEBUG
@@ -421,6 +421,9 @@ class HttpServer extends Socket.Server {
     }
     ; 设置错误响应
     SetErrorResponse(code) {
+        if this.ErrorResMsg.HasOwnProp(code) {
+            code := 500
+        }
         this.Res.sCode := this.ErrorResMsg[code].sCode
         this.Res.sMsg := this.ErrorResMsg[code].sMsg
         this.Res.Body := this.ErrorResMsg[code].Body
