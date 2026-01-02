@@ -11,8 +11,8 @@ NOT_A_STANDARD_HTTP_REQUEST := "不是标准的HTTP请求"
 QUERY_PARAMETER_ERROR := "查询参数错误"
 REQUEST_HEADER_ERROR := "请求头错误"
 FILE_NOT_FOUND_OR_PATH_ERROR := "文件不存在或路径错误"
-NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_ := "传入的变量类型错误，需要传入{1}"
-REQUEST_DENIED_FROM_ := "[HttpServer] 已拒绝来自{1}的请求"
+NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_ := "传入的变量类型错误，需要传入 {1}"
+REQUEST_DENIED_FROM_ := "[HttpServer] 已拒绝来自 {1} 的请求"
 ;@region log
 class Log {
     static __New() {
@@ -272,8 +272,10 @@ class HttpServer extends Socket.Server {
             if Socket.MsgSize() {
                 ; IP访问控制检查
                 if this.IPRestrict {
-                    if this.CallbackFunc.Has("IPAudit") and not this.CallbackFunc["IPAudit"](Socket.addr, "Access") {
-                        Log.Warn(Format("REQUEST_DENIED_FROM_", Socket.addr), "")
+                    if this.CallbackFunc.Has("IPAudit")
+                        and not this.CallbackFunc["IPAudit"](
+                            SubStr(Socket.addr, 1, InStr(Socket.addr, ":") - 1)) {
+                        Log.Warn(Format(REQUEST_DENIED_FROM_, Socket.addr), "")
                         Socket.__Delete()
                         return
                     }
@@ -405,7 +407,7 @@ class HttpServer extends Socket.Server {
         this.Res.Body := BuffObj
     }
     ; 获取请求体
-    GetReqBodyText(encoding:="UTF-8") {
+    GetReqBodyText(encoding := "UTF-8") {
         if this.Req.Body is String {
             return this.Req.Body
         } else {

@@ -14,19 +14,10 @@ Server := HttpServer(10000)
 Server.SetPaths(path)
 Server.SetMimeType("mimetypes")
 Server.web := false	; 是否开启web服务
-Server.IPRestrict := true	; 拒绝外部IP访问
+Server.IPRestrict := true	; 是否开启IP限制
+AllowIP := Map("192.168.1.2", true,"127.0.0.1", true)   ; 允许的IP
+Server.CallbackFunc["IPAudit"] := (ip) => (AllowIP.Get(ip, 0))  ; IP限制的回调函数
 
-; hash(req, res) {
-;     try FileDelete "hash.txt"
-;     FileAppend(req.Body, "hash.txt", "utf-8 Raw")
-;     OutputDebug req.Headers["hash"] "`n"
-;     OutputDebug md5sum("hash.txt") "`n"
-;     if req.Headers["hash"] = md5sum("hash.txt") {
-;         OutputDebug "Yes"
-;     } else {
-;         OutputDebug "No"
-;     }
-; }
 root(req, res) {
     if Server.web {
         Server.SetBodyFile(".\index.html")
@@ -45,7 +36,7 @@ debug(req, res) {
     for k, v in req.headers
         res.Body .= k ": " v "`n"
 }
-echo(req, res) { 
+echo(req, res) {
     OutputDebug req.Body
 }
 ; latency(req, res) {

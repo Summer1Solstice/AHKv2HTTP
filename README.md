@@ -60,8 +60,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | sCode    | 响应代码           | Int           | 200                                                                                                                                                                                           |
 | sMsg     | 响应消息           | String        | OK                                                                                                                                                                                            |
 | Headers  | 响应头             | Map           | Content-Length: res.body.Length,<br>Content-Location: req.Url,<br>Content-Type: text/plain,<br>Date: FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss"),<br>Server: "AutoHotkey/" A_AhkVersion |
-| Body     | 响应体             | String/Buffer | 如果请求体过长，产生分段，则`body`为`Buffer`。 使用`GetReqBodyText`提取文本                                                                                                                                                                                 |
-
+| Body     | 响应体             | String/Buffer | 如果请求体过长，产生分段，则`body`为`Buffer`。 使用`GetReqBodyText`提取文本                                                                                                                   |
 
 ## 日志
 预期内的错误会输出日志到`A_WorkingDir\logs\{date}.log`文件。
