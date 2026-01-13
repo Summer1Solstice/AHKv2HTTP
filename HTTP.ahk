@@ -274,7 +274,8 @@ class HttpServer extends Socket.Server {
                 if this.IPRestrict {
                     if this.CallbackFunc.Has("IPAudit")
                         and not this.CallbackFunc["IPAudit"](
-                            SubStr(Socket.addr, 1, InStr(Socket.addr, ":") - 1)) {
+                            SubStr(Socket.addr, 1, InStr(Socket.addr, ":") - 1))
+                    {
                         Log.Warn(Format(REQUEST_DENIED_FROM_, Socket.addr), "")
                         Socket.__Delete()
                         return
@@ -332,9 +333,6 @@ class HttpServer extends Socket.Server {
     ; 处理Web请求
     HandleWebRequest(Socket) {
         ; Web访问IP控制检查
-        if this.CallbackFunc.Has("IPAudit") and not this.CallbackFunc["IPAudit"](Socket.addr, "Web") {
-            return 403
-        }
         Path := "." this.Req.Url
         SplitPath(this.Req.Url, , , &Ext)
         ; 检查文件是否存在且有对应的MIME类型

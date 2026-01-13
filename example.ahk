@@ -10,13 +10,26 @@ path["/logo"] := logo
 ; path["/echo"] := echo
 ; path["/latency"] := latency
 
-Server := HttpServer(10000)
+Server := HttpServer(80)
 Server.SetPaths(path)
 Server.SetMimeType("mimetypes")
-Server.web := false	; 是否开启web服务
+Server.web := true	; 是否开启web服务
 Server.IPRestrict := true	; 是否开启IP限制
-AllowIP := Map("192.168.1.2", true,"127.0.0.1", true)   ; 允许的IP
-Server.CallbackFunc["IPAudit"] := (ip) => (AllowIP.Get(ip, 0))  ; IP限制的回调函数
+IPAudit(ip) {
+    static AllowIP := Map("127.0.0.1", true, "0.0.0.0", true)   ; 允许的IP
+    if AllowIP.Has(ip) {
+        return true
+    } else {
+        ip := StrSplit(ip, ".")
+        if ip[1] = 192 and ip[2] = 168 {
+            return true
+        }
+        if ip[1] = 172 and (ip[2] > 15 and ip[2] < 32) {
+            return true
+        }
+    }
+}
+Server.CallbackFunc["IPAudit"] := IPAudit
 
 root(req, res) {
     if Server.web {
