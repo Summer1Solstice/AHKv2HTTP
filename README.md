@@ -49,7 +49,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | Protocol     | HTTP协议版本     | String | HTTP/1.1 |
 | Headers      | 请求头           | Map    |          |
 | Body         | 请求体           | String |          |
-| GetQueryArgs | 查询参数         | Map    |          |
+| GetArgs | 查询参数         | Map    |          |
 
 
 **Response**包含以下属性：

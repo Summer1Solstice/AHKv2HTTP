@@ -96,7 +96,7 @@ class Request {
         this.Protocol := "HTTP/1.1" ; 请求协议
         this.Headers := Map()   ; 请求头
         this.Body := "" ; 请求体
-        this.GetQueryArgs := Map()  ; GET请求参数
+        this.GetArgs := Map()  ; GET请求参数
         this.Block := [] ; 分块列表
         this.BlockSize := 0
     }
@@ -177,7 +177,7 @@ class Request {
         this.Protocol := LineList[3]
         ; 检查URL中是否有查询参数
         if not Pos := InStr(this.Url, "?") {
-            this.GetQueryArgs := Map()
+            this.GetArgs := Map()
             return 0
         }
         ; 解析GET请求参数
@@ -189,7 +189,7 @@ class Request {
             return 400
         }
         this.Url := SubStr(this.Url, 1, pos - 1)
-        this.GetQueryArgs := Map(ArgsList*)
+        this.GetArgs := Map(ArgsList*)
         return 0
     }
     ;@region ParseHeaders

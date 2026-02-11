@@ -10,7 +10,7 @@ path["/logo"] := logo
 ; path["/echo"] := echo
 ; path["/latency"] := latency
 
-Server := HttpServer(80)
+Server := HttpServer(10000)
 Server.SetPaths(path)
 Server.SetMimeType("mimetypes")
 Server.web := true	; 是否开启web服务
