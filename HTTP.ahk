@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2025/12/21
- * @version 3.0.0
+ * @date 2026/02/16
+ * @version 3.1.0
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -214,8 +214,12 @@ class Response {
         this.Headers := Map()   ; 响应头
         this.Body := "" ; 响应体
     }
-    ; 生成响应
-    Generate() {
+    ; 构建响应行
+    BuildLine() {
+        return Format("{1} {2} {3}", this.Line, this.sCode, this.sMsg)
+    }
+    ; 构建响应头
+    BuildHeaders() {
         ; 响应头中添加Content-Length和Content-Type
         if not this.Headers.Has("Content-Length") {
             this.Headers["Content-Length"] := HTTP.GetBodySize(this.Body)
@@ -223,11 +227,16 @@ class Response {
         if not this.Headers.Has("Content-Type") {
             this.Headers["Content-Type"] := "text/plain"
         }
-        ResLine := Format("{1} {2} {3}", this.Line, this.sCode, this.sMsg)
         ResHeaders := ""
         for k, v in this.Headers {
             ResHeaders .= Format("{1}: {2}`r`n", k, v)
         }
+        return ResHeaders
+    }
+    ; 生成响应
+    BuildResponse() {
+        ResLine := this.BuildLine()
+        ResHeaders := this.BuildHeaders()
         ; 判断消息体类型, 是否在消息中包含消息体
         if Type(this.Body) = "Buffer" {
             Msg := Format("{1}`r`n{2}`r`n", ResLine, ResHeaders)
@@ -344,29 +353,49 @@ class HttpServer extends Socket.Server {
     }
     ; 返回响应
     SendResponse(Socket) {
-        ; 根据请求方法设置响应
-        if this.Req.Method = "HEAD" {
-            this.Res.Body := ""
-        } else if this.Req.Method = "TRACE" {
-            this.SetBodyText(this.Req.Request)
-        } else if this.Req.Method = "OPTIONS" {
-            this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
-        }
-        ; 设置响应头
-        this.Res.Headers["Content-Location"] := this.Req.Url
-        this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
-        this.Res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
+        this.SetResponseLine()    ; 设置响应行
+        this.SetResponseHeader()    ; 设置响应头
+        this.SetResponseBody()    ; 设置响应体
         ; 根据body类型发送响应
         if Type(this.Res.Body) = "Buffer" {
-            Socket.SendText(this.Res.Generate())
+            Socket.SendText(this.Res.BuildResponse())
             Socket.Send(this.Res.Body)
         } else {
-            Socket.SendText(this.Res.Generate())
+            Socket.SendText(this.Res.BuildResponse())
         }
         ; 调试输出
         if this.Req.Url = "/debug" or this.Req.Method = "TRACE" {
             this.DeBug()
         }
+    }
+    ; 设置响应行
+    SetResponseLine() {
+        return
+    }
+    ; 设置响应头
+    SetResponseHeader() {
+        this.Res.Headers["Content-Location"] := this.Req.Url
+        this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
+        this.Res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
+        if this.Req.Method = "Allow" {
+            this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
+        }
+    }
+    ; 设置响应体
+    SetResponseBody() {
+        switch this.Req.Method {
+            case "HEAD": this.Res.Body := ""
+            case "TRACE": this.SetBodyText(this.Req.Request)
+        }
+    }
+    ; 设置错误响应
+    SetErrorResponse(code) {
+        if this.ErrorResMsg.HasOwnProp(code) {
+            code := 500
+        }
+        this.Res.sCode := this.ErrorResMsg[code].sCode
+        this.Res.sMsg := this.ErrorResMsg[code].sMsg
+        this.Res.Body := this.ErrorResMsg[code].Body
     }
     ; 设置mime类型
     SetMimeType(FilePath) {
@@ -418,14 +447,5 @@ class HttpServer extends Socket.Server {
         OutputDebug "`n----------------------------------`n"
         OutputDebug this.Res.Response
         OutputDebug "`n=====================================================================`n"
-    }
-    ; 设置错误响应
-    SetErrorResponse(code) {
-        if this.ErrorResMsg.HasOwnProp(code) {
-            code := 500
-        }
-        this.Res.sCode := this.ErrorResMsg[code].sCode
-        this.Res.sMsg := this.ErrorResMsg[code].sMsg
-        this.Res.Body := this.ErrorResMsg[code].Body
     }
 }

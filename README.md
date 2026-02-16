@@ -12,6 +12,9 @@ A crude, rough and makeshift AHKv2 HTTP server.
 输出错误日志待完善。  
 请求体过长截断的问题已经解决，使用大小`9.76M`的UTF-8编码txt文件进行测试没有问题，但没有做更多测试。  
 感觉在编码方面还是有隐患。~~也可能是我多虑了~~
+# 更新日志
+- 2026/02/16  
+    现在服务端的大部分行为都可以通过派生类，重写方法来修改。  
 # 使用方法
 ## 开始
 1. 实例化类`HttpServer`，同时传入端口号。  
@@ -41,15 +44,15 @@ A crude, rough and makeshift AHKv2 HTTP server.
 - 其他暂无，没什么需求。
 ## 可用属性
 **Request**包含以下属性：
-| 属性         | 描述             | 类型   | 默认值   |
-| ------------ | ---------------- | ------ | -------- |
-| Request      | 未解析的原始请求 | String |          |
-| Method       | 请求方法         | String |          |
-| Url          | 请求URL          | String |          |
-| Protocol     | HTTP协议版本     | String | HTTP/1.1 |
-| Headers      | 请求头           | Map    |          |
-| Body         | 请求体           | String |          |
-| GetArgs | 查询参数         | Map    |          |
+| 属性     | 描述             | 类型   | 默认值   |
+| -------- | ---------------- | ------ | -------- |
+| Request  | 未解析的原始请求 | String |          |
+| Method   | 请求方法         | String |          |
+| Url      | 请求URL          | String |          |
+| Protocol | HTTP协议版本     | String | HTTP/1.1 |
+| Headers  | 请求头           | Map    |          |
+| Body     | 请求体           | String |          |
+| GetArgs  | 查询参数         | Map    |          |
 
 
 **Response**包含以下属性：
@@ -60,7 +63,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | sCode    | 响应代码           | Int           | 200                                                                                                                                                                                           |
 | sMsg     | 响应消息           | String        | OK                                                                                                                                                                                            |
 | Headers  | 响应头             | Map           | Content-Length: res.body.Length,<br>Content-Location: req.Url,<br>Content-Type: text/plain,<br>Date: FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss"),<br>Server: "AutoHotkey/" A_AhkVersion |
-| Body     | 响应体             | String/Buffer | 如果请求体过长，产生分段，则`body`为`Buffer`。 使用`GetReqBodyText`提取文本                                                                                                                   |
+| Body     | 响应体             | String/Buffer | 如果请求过长，产生分段，则`body`为`Buffer`。 使用`GetReqBodyText`提取文本                                                                                                                   |
 
 ## 日志
 预期内的错误会输出日志到`A_WorkingDir\logs\{date}.log`文件。
