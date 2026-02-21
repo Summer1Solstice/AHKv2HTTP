@@ -32,15 +32,14 @@ IPAudit(ip) {
 Server.CallbackFunc["IPAudit"] := IPAudit
 
 root(req, res) {
+    MsgBox "Hello World!"
+}
+HelloWorld(req, res) {
     if Server.web {
         Server.SetBodyFile(".\index.html")
     } else {
-        HelloWorld(req, res)
+        Server.SetBodyText("Hello World!")
     }
-}
-HelloWorld(req, res) {
-    Server.SetBodyText("Hello World!")
-    res.sCode := 200
 }
 logo(req, res) {
     Server.SetBodyFile("logo.png")

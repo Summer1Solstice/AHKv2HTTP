@@ -12,9 +12,6 @@ A crude, rough and makeshift AHKv2 HTTP server.
 输出错误日志待完善。  
 请求体过长截断的问题已经解决，使用大小`9.76M`的UTF-8编码txt文件进行测试没有问题，但没有做更多测试。  
 感觉在编码方面还是有隐患。~~也可能是我多虑了~~
-# 更新日志
-- 2026/02/16  
-    现在服务端的大部分行为都可以通过派生类，重写方法来修改。  
 # 使用方法
 ## 开始
 1. 实例化类`HttpServer`，同时传入端口号。  
@@ -68,6 +65,18 @@ A crude, rough and makeshift AHKv2 HTTP server.
 ## 日志
 预期内的错误会输出日志到`A_WorkingDir\logs\{date}.log`文件。
 
+# 更新日志
+- 2026/02/16  
+    现在服务端的大部分行为都可以通过派生类，重写方法来修改。  
+
+# 关于HTTPS
+使用caddy反向代理来实现HTTPS，至少我是这么做的。  
+觉得`http://ip:port`太长可以尝试使用`.localhost`域名，局域网尝试使用设备名称+`.lan`或`.local`域名。  
+```Caddyfile
+ahk.localhost {
+	reverse_proxy :port
+}
+```
 ### TODO
 
  - [x] 细化日志
