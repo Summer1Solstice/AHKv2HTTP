@@ -34,9 +34,9 @@ A crude, rough and makeshift AHKv2 HTTP server.
 - 调用类实例方法`GetReqBodyText`来获取请求体。
 - 其他请求头、响应头等，可以直接访问传入处理函数的参数`Request`和`Response`的属性。
 ### 回调函数
-`HttpServer`包含一个`Map`类型的属性`CallbackFunc`用于存放回调函数。
+`HttpServer`包含一个`Map`类型的属性`CallbackFunc`用于存放回调函数，其大小写不敏感。
 - `IPAudit`  
-    入参为`ip:port, "Access"`。  参数1 为访问的IP和端口，参数2 为调用的时机，用于限制IP访问，需`IPRestrict`为`true`。  
+    参数为访问的IP，需`IPRestrict`为`true`。  
     函数返回`true`则允许访问，返回`false`则拒绝访问。
 - 其他暂无，没什么需求。
 ## 可用属性
@@ -77,6 +77,7 @@ ahk.localhost {
 	reverse_proxy :port
 }
 ```
+# 其他
 ### TODO
 
  - [x] 细化日志
@@ -92,3 +93,6 @@ ahk.localhost {
  - [x] 将`MimeType`、`ErrorResMsg`移至`http`类
 
  - [ ] `setbody`、`getbody`的方法移至相应类
+
+### 优化方向
+响应头默认初始设置`Content-Type`，能省下大概3个if语句。

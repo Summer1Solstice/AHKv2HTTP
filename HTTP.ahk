@@ -1,11 +1,11 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/02/16
- * @version 3.1.0
+ * @date 2026/02/24
+ * @version 3.1.1
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
-;@region LogMsgText
+;@region #LogMsgText
 BLOCK_MERGE_FAILED := "块合并失败"
 NOT_A_STANDARD_HTTP_REQUEST := "不是标准的HTTP请求"
 QUERY_PARAMETER_ERROR := "查询参数错误"
@@ -13,7 +13,7 @@ REQUEST_HEADER_ERROR := "请求头错误"
 FILE_NOT_FOUND_OR_PATH_ERROR := "文件不存在或路径错误"
 NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_ := "传入的变量类型错误，需要传入 {1}"
 REQUEST_DENIED_FROM_ := "[HttpServer] 已拒绝来自 {1} 的请求"
-;@region log
+;@region #log
 class Log {
     static __New() {
         if not DirExist("logs") {
@@ -39,7 +39,7 @@ class Log {
     ; 严重错误
     static Fatal(Text, Fn := A_ThisFunc) => this.Write("FATAL", Text, Fn)
 }
-;@region Http
+;@region #Http
 class Http {
     ; 获取字符串字节长度
     static GetStrSize(str, encoding := "UTF-8") {
@@ -85,6 +85,8 @@ class Http {
         return StrReplace(StrReplace(v, "`n", "\n"), "`r", "\r") "`n"
     }
     static MimeType := Map()   ; Mime类型表
+    ;@region ##ErrorResMsg
+    ; 响应预设
     static ErrorResMsg := Map(
         ; 4xx 客户端错误状态码
         400, { sCode: 400, sMsg: 'Bad Request', Body: "400 Bad Request" }, ; 请求语法错误或参数有误，服务器无法理解
@@ -105,7 +107,7 @@ class Http {
     )
 }
 ; 请求类
-;@region Request
+;@region #Request
 class Request {
     __New() {
         this.Request := ""  ; 原始请求消息
@@ -118,7 +120,7 @@ class Request {
         this.Block := [] ; 分块列表
         this.BlockSize := 0
     }
-    ;@region Parse
+    ;@region ##Parse
     Parse(ReqMsg) {
         ; 如果存在分块数据，则继续接收分块数据
         if this.Block.Length {
@@ -145,7 +147,7 @@ class Request {
             Log.Error(Block_MERGE_FAILED)
             return 500
         }
-        ;@region line&head
+        ;@region ###line&head
         msg := StrGet(ReqMsg, "utf-8")
         ; 以下pos不包含最末尾的\r\n
         LineEndPos := InStr(msg, "`r`n") - 1    ; 获取消息行结束位置
@@ -187,7 +189,7 @@ class Request {
         this.Request := msg
         return 0
     }
-    ;@region ParseLine
+    ;@region ##ParseLine
     ParseLine(Line) {
         LineList := StrSplit(Line, A_Space)
         this.Method := LineList[1]
@@ -210,7 +212,7 @@ class Request {
         this.GetArgs := Map(ArgsList*)
         return 0
     }
-    ;@region ParseHeaders
+    ;@region ##ParseHeaders
     ParseHeaders(Headers) {
         HeadersList := StrSplit(Headers, ["`r`n", ": "])
         ; 检查请求头格式是否正确（键值对应该成对出现）
@@ -222,7 +224,7 @@ class Request {
         return 0
     }
 }
-;@region Response
+;@region #Response
 class Response {
     __New() {
         this.Response := "" ; 原始响应消息
@@ -232,10 +234,12 @@ class Response {
         this.Headers := Map()   ; 响应头
         this.Body := "" ; 响应体
     }
+    ;@region ##BuildLine
     ; 构建响应行
     BuildLine() {
         return Format("{1} {2} {3}", this.Line, this.sCode, this.sMsg)
     }
+    ;@region ##BuildHeaders
     ; 构建响应头
     BuildHeaders() {
         ; 响应头中添加Content-Length和Content-Type
@@ -251,6 +255,7 @@ class Response {
         }
         return ResHeaders
     }
+    ;@region ##BuildResponse
     ; 生成响应
     BuildResponse() {
         ResLine := this.BuildLine()
@@ -265,7 +270,7 @@ class Response {
     }
 }
 
-;@region HttpServer
+;@region #HttpServer
 class HttpServer extends Socket.Server {
     Path := Map()   ; 路由表
     Req := Request()    ; 请求类
@@ -273,6 +278,8 @@ class HttpServer extends Socket.Server {
     Web := false    ; 是否开启web功能
     IPRestrict := true  ; 是否开启IP限制
     CallbackFunc := Map()
+    CallbackFunc.CaseSense := false
+    ;@region ##onACCEPT
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
@@ -297,6 +304,7 @@ class HttpServer extends Socket.Server {
             this.Req.__New()
         }
     }
+    ;@region ##Main
     Main(Socket) {
         ; 解析HTTP请求
         Code := this.Req.Parse(Socket.Recv())
@@ -318,6 +326,7 @@ class HttpServer extends Socket.Server {
         }
         return this.SendResponse(Socket)
     }
+    ;@region ##HandleRequest
     ; 处理请求
     HandleRequest(Socket) {
         ; 尝试处理API调用请求
@@ -329,6 +338,7 @@ class HttpServer extends Socket.Server {
             return Code
         }
     }
+    ;@region ##HandleCallRequest
     ; 处理调用请求
     HandleCallRequest(Socket) {
         ; 检查路由表中是否存在该URL路径
@@ -338,23 +348,24 @@ class HttpServer extends Socket.Server {
         this.Path[this.Req.Url](this.Req, this.Res) ; 执行请求
         return 0
     }
+    ;@region ##HandleWebRequest
     ; 处理Web请求
     HandleWebRequest(Socket) {
         ; Web访问IP控制检查
         Path := "." this.Req.Url
-        SplitPath(this.Req.Url, , , &Ext)
         ; 检查文件是否存在且有对应的MIME类型
-        if not (FileExist(Path) and Http.MimeType.Has(Ext)) {
+        if not FileExist(Path) {
             return 404
         }
         this.SetBodyFile(Path)
         return 0
     }
+    ;@region ##SendResponse
     ; 返回响应
     SendResponse(Socket) {
-        this.SetResponseLine()    ; 设置响应行
-        this.SetResponseHeader()    ; 设置响应头
-        this.SetResponseBody()    ; 设置响应体
+        this.SetResLine()    ; 设置响应行
+        this.SetResHeader()    ; 设置响应头
+        this.SetResBody()    ; 设置响应体
         ; 根据body类型发送响应
         if Type(this.Res.Body) = "Buffer" {
             Socket.SendText(this.Res.BuildResponse())
@@ -367,12 +378,14 @@ class HttpServer extends Socket.Server {
             this.DeBug()
         }
     }
+    ;@region #SetResLine
     ; 设置响应行
-    SetResponseLine() {
+    SetResLine() {
         return
     }
+    ;@region ##SetResHeader
     ; 设置响应头
-    SetResponseHeader() {
+    SetResHeader() {
         this.Res.Headers["Content-Location"] := this.Req.Url
         this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
         this.Res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
@@ -380,13 +393,15 @@ class HttpServer extends Socket.Server {
             this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
         }
     }
+    ;@region ##SetResBody
     ; 设置响应体
-    SetResponseBody() {
+    SetResBody() {
         switch this.Req.Method {
             case "HEAD": this.Res.Body := ""
             case "TRACE": this.SetBodyText(this.Req.Request)
         }
     }
+    ;@region ##SetErrorResponse
     ; 设置错误响应
     SetErrorResponse(code) {
         if not Http.ErrorResMsg.Has(code) {
@@ -396,6 +411,7 @@ class HttpServer extends Socket.Server {
         this.Res.sMsg := Http.ErrorResMsg[code].sMsg
         this.Res.Body := Http.ErrorResMsg[code].Body
     }
+    ;@region ##LoadMimeType
     ; 设置mime类型
     LoadMimeType(FilePath) {
         if not FileExist(FilePath) {
@@ -403,6 +419,7 @@ class HttpServer extends Socket.Server {
         }
         Http.MimeType := HTTP.ParseMimes(FileRead(FilePath, "utf-8 `n"))
     }
+    ;@region ##SetPaths
     ; 设置请求路径对应的处理函数
     SetPaths(Paths) {
         if not Type(Paths) = "Map" {
@@ -410,6 +427,7 @@ class HttpServer extends Socket.Server {
         }
         this.Path := Paths
     }
+    ;@region ##SetBodyText
     ; 设置响应体(文本)
     SetBodyText(Str) {
         this.Res.Headers["Content-Length"] := HTTP.GetStrSize(Str)
@@ -417,6 +435,7 @@ class HttpServer extends Socket.Server {
             this.Res.Headers["Content-Type"] := "text/plain"
         this.Res.Body := Str
     }
+    ;@region ##SetBodyFile
     ; 设置响应体(文件)
     SetBodyFile(FilePath) {
         if !FileExist(FilePath) {
@@ -432,6 +451,7 @@ class HttpServer extends Socket.Server {
             : this.Res.Headers["Content-Type"] := "text/plain"
         this.Res.Body := BuffObj
     }
+    ;@region ##GetReqBodyText
     ; 获取请求体
     GetReqBodyText(encoding := "UTF-8") {
         if this.Req.Body is String {
@@ -440,7 +460,7 @@ class HttpServer extends Socket.Server {
             return StrGet(this.Req.Body, this.Req.Body.size, encoding)
         }
     }
-    ; DEBUG
+    ;@region ##DeBug
     DeBug() {
         OutputDebug this.Req.Request
         OutputDebug "`n----------------------------------`n"
