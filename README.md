@@ -88,3 +88,7 @@ ahk.localhost {
  - [x] 尝试优化请求体过长（极限大概是几KB）截断的问题，现有的处理逻辑会导致字符的字节丢失。  
 
  ~~- [ ] 重写。没有方向搁置~~
+
+ - [x] 将`MimeType`、`ErrorResMsg`移至`http`类
+
+ - [ ] `setbody`、`getbody`的方法移至相应类

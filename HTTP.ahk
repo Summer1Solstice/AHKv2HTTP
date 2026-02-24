@@ -68,11 +68,10 @@ class Http {
         return i
     }
     ; 解析mime类型文件
-    static LoadMimes(FilePath) {    ;考虑优化为JSON
-        FileConent := FileRead(FilePath, "`n")
+    static ParseMimes(Mimes) {    ;考虑优化为JSON
         MimeType := Map()
         MimeType.CaseSense := false
-        for i in StrSplit(FileConent, "`n") {
+        for i in StrSplit(Mimes, "`n") {
             if InStr(i, ":") {
                 MimeType.Set(StrSplit(i, ":", A_Space "" A_Tab)*)
             } else if InStr(i, A_Tab) {
@@ -85,6 +84,25 @@ class Http {
     static VisibleBr(v) {
         return StrReplace(StrReplace(v, "`n", "\n"), "`r", "\r") "`n"
     }
+    static MimeType := Map()   ; Mime类型表
+    static ErrorResMsg := Map(
+        ; 4xx 客户端错误状态码
+        400, { sCode: 400, sMsg: 'Bad Request', Body: "400 Bad Request" }, ; 请求语法错误或参数有误，服务器无法理解
+        403, { sCode: 403, sMsg: 'Forbidden', Body: "403 Forbidden" }, ; 服务器理解请求但拒绝执行，通常是因为权限不足
+        404, { sCode: 404, sMsg: 'Not Found', Body: "404 Not Found" }, ; 请求的资源在服务器上未找到
+        405, { sCode: 405, sMsg: 'Method Not Allowed', Body: "405 Method Not Allowed" }, ; 请求方法对指定资源不被允许
+        406, { sCode: 406, sMsg: 'Not Acceptable', Body: "406 Not Acceptable" }, ; 服务器无法根据客户端的Accept头提供合适的响应内容
+        408, { sCode: 408, sMsg: 'Request Timeout', Body: "408 Request Timeout" }, ; 服务器等待客户端发送请求的时间过长
+        409, { sCode: 409, sMsg: 'Conflict', Body: "409 Conflict" }, ; 请求与服务器当前状态冲突，无法完成
+        410, { sCode: 410, sMsg: 'Gone', Body: "410 Gone" }, ; 请求的资源已被永久删除
+        ; 5xx 服务器错误状态码
+        500, { sCode: 500, sMsg: 'Internal Server Error', Body: "500 Internal Server Error" }, ; 服务器遇到意外情况无法完成请求
+        501, { sCode: 501, sMsg: 'Not Implemented', Body: "501 Not Implemented" }, ; 服务器不支持请求的功能
+        502, { sCode: 502, sMsg: 'Bad Gateway', Body: "502 Bad Gateway" }, ; 作为网关或代理时收到无效响应
+        503, { sCode: 503, sMsg: 'Service Unavailable', Body: "503 Service Unavailable" }, ; 服务器暂时无法处理请求，通常是过载或维护
+        504, { sCode: 504, sMsg: 'Gateway Timeout', Body: "504 Gateway Timeout" }, ; 作为网关或代理时无法及时获得响应
+        505, { sCode: 505, sMsg: 'HTTP Version Not Supported', Body: "505 HTTP Version Not Supported" } ; 服务器不支持请求使用的HTTP版本
+    )
 }
 ; 请求类
 ;@region Request
@@ -250,30 +268,11 @@ class Response {
 ;@region HttpServer
 class HttpServer extends Socket.Server {
     Path := Map()   ; 路由表
-    MimeType := Map()   ; Mime类型表
     Req := Request()    ; 请求类
     Res := Response()   ; 响应类
     Web := false    ; 是否开启web功能
     IPRestrict := true  ; 是否开启IP限制
     CallbackFunc := Map()
-    ErrorResMsg := Map(
-        ; 4xx 客户端错误状态码
-        400, { sCode: 400, sMsg: 'Bad Request', Body: "400 Bad Request" }, ; 请求语法错误或参数有误，服务器无法理解
-        403, { sCode: 403, sMsg: 'Forbidden', Body: "403 Forbidden" }, ; 服务器理解请求但拒绝执行，通常是因为权限不足
-        404, { sCode: 404, sMsg: 'Not Found', Body: "404 Not Found" }, ; 请求的资源在服务器上未找到
-        405, { sCode: 405, sMsg: 'Method Not Allowed', Body: "405 Method Not Allowed" }, ; 请求方法对指定资源不被允许
-        406, { sCode: 406, sMsg: 'Not Acceptable', Body: "406 Not Acceptable" }, ; 服务器无法根据客户端的Accept头提供合适的响应内容
-        408, { sCode: 408, sMsg: 'Request Timeout', Body: "408 Request Timeout" }, ; 服务器等待客户端发送请求的时间过长
-        409, { sCode: 409, sMsg: 'Conflict', Body: "409 Conflict" }, ; 请求与服务器当前状态冲突，无法完成
-        410, { sCode: 410, sMsg: 'Gone', Body: "410 Gone" }, ; 请求的资源已被永久删除
-        ; 5xx 服务器错误状态码
-        500, { sCode: 500, sMsg: 'Internal Server Error', Body: "500 Internal Server Error" }, ; 服务器遇到意外情况无法完成请求
-        501, { sCode: 501, sMsg: 'Not Implemented', Body: "501 Not Implemented" }, ; 服务器不支持请求的功能
-        502, { sCode: 502, sMsg: 'Bad Gateway', Body: "502 Bad Gateway" }, ; 作为网关或代理时收到无效响应
-        503, { sCode: 503, sMsg: 'Service Unavailable', Body: "503 Service Unavailable" }, ; 服务器暂时无法处理请求，通常是过载或维护
-        504, { sCode: 504, sMsg: 'Gateway Timeout', Body: "504 Gateway Timeout" }, ; 作为网关或代理时无法及时获得响应
-        505, { sCode: 505, sMsg: 'HTTP Version Not Supported', Body: "505 HTTP Version Not Supported" } ; 服务器不支持请求使用的HTTP版本
-    )
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
         this.client.onREAD := onread
@@ -345,7 +344,7 @@ class HttpServer extends Socket.Server {
         Path := "." this.Req.Url
         SplitPath(this.Req.Url, , , &Ext)
         ; 检查文件是否存在且有对应的MIME类型
-        if not (FileExist(Path) and this.MimeType.Has(Ext)) {
+        if not (FileExist(Path) and Http.MimeType.Has(Ext)) {
             return 404
         }
         this.SetBodyFile(Path)
@@ -390,19 +389,19 @@ class HttpServer extends Socket.Server {
     }
     ; 设置错误响应
     SetErrorResponse(code) {
-        if this.ErrorResMsg.HasOwnProp(code) {
+        if not Http.ErrorResMsg.Has(code) {
             code := 500
         }
-        this.Res.sCode := this.ErrorResMsg[code].sCode
-        this.Res.sMsg := this.ErrorResMsg[code].sMsg
-        this.Res.Body := this.ErrorResMsg[code].Body
+        this.Res.sCode := Http.ErrorResMsg[code].sCode
+        this.Res.sMsg := Http.ErrorResMsg[code].sMsg
+        this.Res.Body := Http.ErrorResMsg[code].Body
     }
     ; 设置mime类型
-    SetMimeType(FilePath) {
+    LoadMimeType(FilePath) {
         if not FileExist(FilePath) {
             throw TargetError(FilePath " " FILE_NOT_FOUND_OR_PATH_ERROR)
         }
-        this.MimeType := HTTP.LoadMimes(FilePath)
+        Http.MimeType := HTTP.ParseMimes(FileRead(FilePath, "utf-8 `n"))
     }
     ; 设置请求路径对应的处理函数
     SetPaths(Paths) {
@@ -428,8 +427,8 @@ class HttpServer extends Socket.Server {
         BuffObj := FileRead(FilePath, "Raw")
         this.Res.Headers["Content-Length"] := BuffObj.size
         SplitPath(FilePath, , , &ext)
-        this.MimeType.Has(ext)
-            ? this.Res.Headers["Content-Type"] := this.MimeType[ext]
+        Http.MimeType.Has(ext)
+            ? this.Res.Headers["Content-Type"] := Http.MimeType[ext]
             : this.Res.Headers["Content-Type"] := "text/plain"
         this.Res.Body := BuffObj
     }

@@ -5,14 +5,14 @@ Persistent
 path := Map()
 path["/"] := root
 path["/logo"] := logo
+path["/hello"] := HelloWorld
 ; path["/debug"] := debug
 ; path["/hash"] := hash
 ; path["/echo"] := echo
-; path["/latency"] := latency
 
 Server := HttpServer(10000)
 Server.SetPaths(path)
-Server.SetMimeType("mimetypes")
+Server.LoadMimeType("mimetypes")
 Server.web := true	; 是否开启web服务
 Server.IPRestrict := true	; 是否开启IP限制
 IPAudit(ip) {
@@ -33,6 +33,7 @@ Server.CallbackFunc["IPAudit"] := IPAudit
 
 root(req, res) {
     MsgBox "Hello World!"
+    res.Body := "Hello World!"
 }
 HelloWorld(req, res) {
     if Server.web {
@@ -51,15 +52,6 @@ debug(req, res) {
 echo(req, res) {
     OutputDebug req.Body
 }
-; latency(req, res) {
-;     n := req.Body
-;     if IsInteger(n) and n >= 1 {
-;         res.Body := Collatz_Conjecture(n)
-;         HTTP.Log("latency: " n, 1)
-;         return true
-;     }
-;     HTTP.Log("latency:`n" n, 1)
-; }
 hash(req, res) {
     try FileDelete "hash"
     FileAppend(req.Body, "hash", "Raw")
