@@ -32,8 +32,8 @@ IPAudit(ip) {
 Server.CallbackFunc["IPAudit"] := IPAudit
 
 root(req, res) {
-    MsgBox "Hello World!"
-    res.Body := "Hello World!"
+    ; MsgBox "Hello World!"
+    res.Body := "Hello World!(TestVersion)"
 }
 HelloWorld(req, res) {
     if Server.web {

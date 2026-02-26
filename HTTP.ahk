@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/02/24
- * @version 3.1.1
+ * @date 2026/02/26
+ * @version 3.1.2
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -47,9 +47,10 @@ class Http {
     }
     ; 获取body字节长度
     static GetBodySize(Body) {
-        if Type(Body) = "Buffer" {
+        if Body is Buffer {
             return Body.size
-        } else {
+        }
+        if Body is Primitive {
             return Http.GetStrSize(Body)
         }
     }
@@ -126,7 +127,7 @@ class Request {
         if this.Block.Length {
             this.Block.Push(ReqMsg)
             this.BlockSize += ReqMsg.size
-            OutputDebug this.BlockSize " " this.Headers.Get("Content-Length", 0) "`n"
+            ; OutputDebug this.BlockSize " " this.Headers.Get("Content-Length", 0) "`n"
             ; 检查是否已接收完整的请求体
             if this.BlockSize != this.Headers.Get("Content-Length", 0) {
                 return
@@ -180,7 +181,6 @@ class Request {
                     DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + temp, "UInt", ReqMsg.size - temp)
                     this.Block.Push(body)
                     this.BlockSize += body.size
-                    ; OutputDebug this.BlockSize "`n"
                 }
                 return
             }
@@ -377,6 +377,9 @@ class HttpServer extends Socket.Server {
         if this.Req.Url = "/debug" or this.Req.Method = "TRACE" {
             this.DeBug()
         }
+        if this.Req.Headers.Get("Connection", 0) = "close" {
+            Socket.__Delete()
+        }
     }
     ;@region #SetResLine
     ; 设置响应行
@@ -392,6 +395,7 @@ class HttpServer extends Socket.Server {
         if this.Req.Method = "Allow" {
             this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
         }
+        ; this.Res.Headers["Connection"] := "close"
     }
     ;@region ##SetResBody
     ; 设置响应体
