@@ -79,20 +79,13 @@ ahk.localhost {
 ```
 # 其他
 ### TODO
-
  - [x] 细化日志
-
  - [x] 优化`HTTP.log`  
-    
  - [x] 优化`ParseRequest`的If结构。  
-
  - [x] 尝试优化请求体过长（极限大概是几KB）截断的问题，现有的处理逻辑会导致字符的字节丢失。  
-
- ~~- [ ] 重写。没有方向搁置~~
-
  - [x] 将`MimeType`、`ErrorResMsg`移至`http`类
-
  - [ ] `setbody`、`getbody`的方法移至相应类
-
+ - [ ] 重写请求类的body为动态属性
+ - [ ] 
 ### 优化方向
 响应头默认初始设置`Content-Type`，能省下大概3个if语句。
