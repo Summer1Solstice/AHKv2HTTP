@@ -86,6 +86,6 @@ ahk.localhost {
  - [x] 将`MimeType`、`ErrorResMsg`移至`http`类
  - [ ] `setbody`、`getbody`的方法移至相应类
  - [ ] 重写请求类的body为动态属性
- - [ ] 
+ - [ ] 向请求类传入响应类实例，发生错误时由请求类直接操作响应类，省去在函数调用间传递错误码。
 ### 优化方向
 响应头默认初始设置`Content-Type`，能省下大概3个if语句。
