@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/02/26
- * @version 3.1.2
+ * @date 2026/03/31
+ * @version 3.1.5
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -13,6 +13,8 @@ REQUEST_HEADER_ERROR := "请求头错误"
 FILE_NOT_FOUND_OR_PATH_ERROR := "文件不存在或路径错误"
 NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_ := "传入的变量类型错误，需要传入 {1}"
 REQUEST_DENIED_FROM_ := "[HttpServer] 已拒绝来自 {1} 的请求"
+PATH_FUNCTION_TYPE_ERROR := "路由函数类型错误，期望是 Func，实际传入{1}"
+FUNCTION_AT_LEAST_TWO_PARAMETERS := "路由函数至少需要两个参数，第一个参数为请求对象，第二个参数为响应对象"
 ;@region 1.log
 class Log {
     static __New() {
@@ -67,6 +69,13 @@ class Http {
         ; https://github.com/thqby/ahk2_lib/blob/244adbe197639f03db314905f839fd7b54ce9340/LogServer.ahk#L473-L484
         DllCall('shlwapi\UrlUnescape', 'str', i, 'ptr', 0, 'uint*', 0, 'uint', 0x140000)
         return i
+    }
+    ; 标准化路径
+    static NormalizePath(path) {
+        cc := DllCall("GetFullPathName", "str", path, "uint", 0, "ptr", 0, "ptr", 0, "uint")
+        buf := Buffer(cc * 2)
+        DllCall("GetFullPathName", "str", path, "uint", cc, "ptr", buf, "ptr", 0)
+        return StrGet(buf)
     }
     ; 解析mime类型文件
     static ParseMimes(Mimes) {    ;考虑优化为JSON
@@ -348,7 +357,7 @@ class HttpServer extends Socket.Server {
     ; 处理Web请求
     HandleWebRequest(Socket) {
         ; Web访问IP控制检查
-        Path := "." this.Req.Url
+        Path := Http.NormalizePath(A_ScriptDir . this.Req.Url)
         ; 检查文件是否存在且有对应的MIME类型
         if not FileExist(Path) {
             return 404
@@ -425,19 +434,29 @@ class HttpServer extends Socket.Server {
         if not Type(Paths) = "Map" {
             throw TypeError(Format(NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_, Type(Paths)))
         }
+        for _, F in Paths {
+            if not F is Func {
+                throw TypeError(Format(PATH_FUNCTION_TYPE_ERROR, Type(F)))
+            }
+            if F.MinParams < 2 {
+                throw Error(Format(FUNCTION_AT_LEAST_TWO_PARAMETERS))
+            }
+        }
         this.Path := Paths
     }
     ;@region 2.SetBodyText
     ; 设置响应体(文本)
-    SetBodyText(Str) {
+    SetBodyText(Str, Encoding := "") {
         this.Res.Headers["Content-Length"] := HTTP.GetStrSize(Str)
-        if not this.Res.Headers.Has("Content-Type")
-            this.Res.Headers["Content-Type"] := "text/plain"
+        if not this.Res.Headers.Has("Content-Type") {
+            this.Res.Headers["Content-Type"] := Encoding
+                ? "text/plain; charset=" Encoding : "text/plain"
+        }
         this.Res.Body := Str
     }
     ;@region 2.SetBodyFile
     ; 设置响应体(文件)
-    SetBodyFile(FilePath) {
+    SetBodyFile(FilePath, Encoding := "") {
         if !FileExist(FilePath) {
             Log.Error(Format("{1} {2}", FilePath, FILE_NOT_FOUND_OR_PATH_ERROR))
             this.SetErrorResponse(404)
@@ -448,7 +467,8 @@ class HttpServer extends Socket.Server {
         SplitPath(FilePath, , , &ext)
         Http.MimeType.Has(ext)
             ? this.Res.Headers["Content-Type"] := Http.MimeType[ext]
-            : this.Res.Headers["Content-Type"] := "text/plain"
+            : this.Res.Headers["Content-Type"] := Encoding
+                ? "text/plain; charset=" Encoding : "text/plain"
         this.Res.Body := BuffObj
     }
     ;@region 2.GetReqBodyText
