@@ -7,7 +7,7 @@ path["/"] := root
 path["/logo"] := logo
 path["/hello"] := HelloWorld
 ; path["/debug"] := debug
-; path["/hash"] := hash
+path["/hash"] := hash
 ; path["/echo"] := echo
 
 Server := HttpServer(10000)

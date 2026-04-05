@@ -141,7 +141,7 @@ class Request {
             this.Body := Buffer(this.BlockSize)
             Size := 0
             for i in this.Block {
-                DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", this.Body.ptr + Size, "Ptr", i.ptr, "UInt", i.size)
+                DllCall("RtlCopyMemory", "Ptr", this.Body.ptr + Size, "Ptr", i.ptr, "UInt", i.size)
                 Size += i.size
             }
             ; 验证合并后的数据大小是否正确
@@ -183,7 +183,7 @@ class Request {
                 temp := StrPut(SubStr(msg, 1, HeadersPos.end + 2), "utf-8")    ;请求体的长度
                 if temp {
                     body := Buffer(ReqMsg.size - temp)
-                    DllCall("Kernel32.dll\RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + temp, "UInt", ReqMsg.size - temp)
+                    DllCall("RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + temp, "UInt", ReqMsg.size - temp)
                     this.Block.Push(body)
                     this.BlockSize += body.size
                 }
