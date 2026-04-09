@@ -37,13 +37,13 @@ root(req, res) {
 }
 HelloWorld(req, res) {
     if Server.web {
-        Server.SetBodyFile(".\index.html")
+        res.SetBodyFile(".\index.html")
     } else {
-        Server.SetBodyText("Hello World!")
+        res.SetBodyText("Hello World!")
     }
 }
 logo(req, res) {
-    Server.SetBodyFile("logo.png")
+    res.SetBodyFile("logo.png")
 }
 debug(req, res) {
     for k, v in req.headers

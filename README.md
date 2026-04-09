@@ -84,7 +84,7 @@ ahk.localhost {
  - [x] 优化`ParseRequest`的If结构。  
  - [x] 尝试优化请求体过长（极限大概是几KB）截断的问题，现有的处理逻辑会导致字符的字节丢失。  
  - [x] 将`MimeType`、`ErrorResMsg`移至`http`类
- - [ ] `setbody`、`getbody`的方法移至相应类
+ - [x] `setbody`、`getbody`的方法移至相应类
  - [ ] 重写请求类的body为动态属性
  - [ ] 向请求类传入响应类实例，发生错误时由请求类直接操作响应类，省去在函数调用间传递错误码。
 ### 优化方向
