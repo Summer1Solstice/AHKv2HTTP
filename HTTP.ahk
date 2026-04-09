@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/03/31
- * @version 3.1.5
+ * @date 2026/04/09
+ * @version 3.1.6
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -281,7 +281,7 @@ class HttpServer extends Socket.Server {
     Req := Request()    ; 请求类
     Res := Response()   ; 响应类
     Web := false    ; 是否开启web功能
-    IPRestrict := true  ; 是否开启IP限制
+    EnableIPCheck := true  ; 是否开启IP限制
     CallbackFunc := Map()
     CallbackFunc.CaseSense := false
     ;@region 2.onACCEPT
@@ -291,9 +291,9 @@ class HttpServer extends Socket.Server {
         onread(Socket, err) {
             if Socket.MsgSize() {
                 ; IP访问控制检查
-                if this.IPRestrict {
-                    if this.CallbackFunc.Has("IPAudit")
-                        and not this.CallbackFunc["IPAudit"](
+                if this.EnableIPCheck {
+                    if this.CallbackFunc.Has("isIPAllowed")
+                        and not this.CallbackFunc["isIPAllowed"](
                             SubStr(Socket.addr, 1, InStr(Socket.addr, ":") - 1))
                     {
                         Log.Warn(Format(REQUEST_DENIED_FROM_, Socket.addr), "")

@@ -13,8 +13,8 @@ path["/hash"] := hash
 Server := HttpServer(10000)
 Server.SetPaths(path)
 Server.LoadMimeType("mimetypes")
-Server.web := true	; 是否开启web服务
-Server.IPRestrict := true	; 是否开启IP限制
+Server.Web := true	; 是否开启web服务
+Server.EnableIPCheck := true	; 是否开启IP限制
 IPAudit(ip) {
     static AllowIP := Map("127.0.0.1", true, "0.0.0.0", true)   ; 允许的IP
     if AllowIP.Has(ip) {
@@ -29,7 +29,7 @@ IPAudit(ip) {
         }
     }
 }
-Server.CallbackFunc["IPAudit"] := IPAudit
+Server.CallbackFunc["isIPAllowed"] := IPAudit
 
 root(req, res) {
     ; MsgBox "Hello World!"
