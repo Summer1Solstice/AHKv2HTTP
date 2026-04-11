@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
  * @date 2026/04/09
- * @version 3.2.0
+ * @version 3.2.1
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -237,7 +237,7 @@ class Request {
     ;@region 2.GetBodyText
     ; 获取请求体
     GetBodyText(encoding := "UTF-8") {
-        if this.Body is String {
+        if this.Body is Primitive {
             return this.Body
         } else {
             return StrGet(this.Body, this.Body.size, encoding)
@@ -294,6 +294,7 @@ class Response {
     SetRedirect(URL, Code := 302) {
         this.SetErrorRes(Code)
         this.Headers["Location"] := URL
+        this.Body := Format('<a href="{1}">{2}</a>.', URL, Http.ResCode[Code].sMsg)
     }
     ;@region 2.SetBodyText
     ; 设置响应体(文本)

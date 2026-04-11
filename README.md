@@ -22,25 +22,26 @@ A crude, rough and makeshift AHKv2 HTTP server.
     jpg: image/jpeg
     ```
 ### 可选配置项
-| 配置项     | 默认值 | 说明            |
-| ---------- | ------ | --------------- |
-| web        | false  | 是否开启Web服务 |
-| IPRestrict | true   | 是否开启IP限制  |
+| 配置项        | 默认值 | 说明            |
+| ------------- | ------ | --------------- |
+| Web           | false  | 是否开启Web服务 |
+| EnableIPCheck | true   | 开启IP限制      |
 ## 使用
 - 当URL路径被访问时调用`paths`中相应的处理函数。  
-- 调用处理函数时，传入两个参数`Request`和`Response`，处理函数必须有两个参数接受传入。    
-- 调用类实例方法`SetBodyText`发送文本，传入字符串。  
-- 调用类实例方法`SetBodyFile`发送文件，传入文件路径。  
-- 调用类实例方法`GetReqBodyText`来获取请求体。
+- 调用处理函数时，传入两个参数，请求`Request`和响应`Response`，处理函数必须有两个参数接受传入。    
+- 调用`Request`类实例方法`GetBodyText`来获取请求体。  
+- 调用`Response`类实例方法`SetBodyText`发送文本，传入字符串，可选传入编码。  
+- 调用`Response`类实例方法`SetBodyFile`发送文件，传入文件路径，可选传入编码。  
 - 其他请求头、响应头等，可以直接访问传入处理函数的参数`Request`和`Response`的属性。
 ### 回调函数
 `HttpServer`包含一个`Map`类型的属性`CallbackFunc`用于存放回调函数，其大小写不敏感。
-- `IPAudit`  
-    参数为访问的IP，需`IPRestrict`为`true`。  
-    函数返回`true`则允许访问，返回`false`则拒绝访问。
+- `isIPAllowed`  
+    参数为访问的IP，需`EnableIPCheck`为`true`。  
+    函数返回`true`则允许访问，返回`false`则拒绝访问。  
+    获取到的访问者IP并不一定是准确的真实IP，也可能是其他转发路由的IP。
 - 其他暂无，没什么需求。
-## 可用属性
-**Request**包含以下属性：
+## 请求 Request
+**可用属性**
 | 属性     | 描述             | 类型   | 默认值   |
 | -------- | ---------------- | ------ | -------- |
 | Request  | 未解析的原始请求 | String |          |
@@ -51,17 +52,34 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | Body     | 请求体           | String |          |
 | GetArgs  | 查询参数         | Map    |          |
 
+**可用方法**包含以下方法：  
+| 方法        | 描述           | 参数             | 返回值                    |
+| ----------- | -------------- | ---------------- | ------------------------- |
+| GetBodyText | 获取请求体文本 | 传入请求体的编码 | 从body Buffer中提取的文本 |
+## 响应 Response
+**可用属性**
+| 属性     | 描述               | 类型          | 默认值                                                                 |
+| -------- | ------------------ | ------------- | ---------------------------------------------------------------------- |
+| Response | 最终生成的HTTP响应 | String        |                                                                        |
+| Line     | HTTP协议版本       | String        | HTTP/1.1                                                               |
+| sCode    | 响应代码           | Int           | 200                                                                    |
+| sMsg     | 响应消息           | String        | OK                                                                     |
+| Headers  | 响应头             | Map           | 必要的`Content-Length`、`Content-Type`和`HttpServer`预设的响应头       |
+| Body     | 响应体             | String/Buffer | 如果请求过长，产生分段，则`body`为`Buffer`。 使用`GetBodyText`提取文本 |
 
-**Response**包含以下属性：
-| 属性     | 描述               | 类型          | 默认值                                                                                                                                                                                        |
-| -------- | ------------------ | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Response | 最终生成的HTTP响应 | String        |                                                                                                                                                                                               |
-| Line     | HTTP协议版本       | String        | HTTP/1.1                                                                                                                                                                                      |
-| sCode    | 响应代码           | Int           | 200                                                                                                                                                                                           |
-| sMsg     | 响应消息           | String        | OK                                                                                                                                                                                            |
-| Headers  | 响应头             | Map           | Content-Length: res.body.Length,<br>Content-Location: req.Url,<br>Content-Type: text/plain,<br>Date: FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss"),<br>Server: "AutoHotkey/" A_AhkVersion |
-| Body     | 响应体             | String/Buffer | 如果请求过长，产生分段，则`body`为`Buffer`。 使用`GetReqBodyText`提取文本                                                                                                                   |
+**可用方法**
+| 方法        | 描述                           | 参数                                       | 返回值 |
+| ----------- | ------------------------------ | ------------------------------------------ | ------ |
+| SetBodyText | 设置响应体文本                 | 传入文本，可选传入编码                     | 无     |
+| SetBodyFile | 设置响应体文件                 | 传入文件路径，可选传入编码                 | 无     |
+| SetErrorRes | 设置错误响应，仅支持部分响应码 | 传入错误码                                 | 无     |
+| SetRedirect | 设置重定向                     | 传入重定向的URL, 可选传入状态码（默认302） | 无     |
 
+如果`SetBodyText`、`SetBodyFile`传入编码，则响应头`Content-Type`将添加`"; charset=" Encoding `
+## HttpServer的预设响应头
+ - Content-Location: 请求的URL
+ - Date: 本地时间
+ - Server: AutoHotkey版本
 ## 日志
 预期内的错误会输出日志到`A_WorkingDir\logs\{date}.log`文件。
 
