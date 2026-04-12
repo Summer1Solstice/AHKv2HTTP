@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/04/09
- * @version 3.2.1
+ * @date 2026/04/12
+ * @version 3.2.2
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -384,7 +384,7 @@ class HttpServer extends Socket.Server {
             return Code
         }
         ; 处理业务逻辑
-        if Code := this.HandleRequest(Socket) {  ; 处理请求
+        if Code := this.HandleRequest() {  ; 处理请求
             this.Res.SetErrorRes(Code)
             this.SendResponse(Socket)
             return Code
@@ -393,11 +393,11 @@ class HttpServer extends Socket.Server {
     }
     ;@region 2.HandleRequest
     ; 处理请求
-    HandleRequest(Socket) {
+    HandleRequest() {
         ; 尝试处理API调用请求
-        if not Code := this.HandleAPIRequest(Socket) {
+        if not Code := this.HandleAPIRequest() {
             return 0
-        } else if this.Web and not Code := this.HandleWebRequest(Socket) { ; 如果启用Web功能，尝试处理文件请求
+        } else if this.Web and not Code := this.HandleWebRequest() { ; 如果启用Web功能，尝试处理文件请求
             return 0
         } else {
             return Code
@@ -405,7 +405,7 @@ class HttpServer extends Socket.Server {
     }
     ;@region 2.HandleAPIRequest
     ; 处理调用请求
-    HandleAPIRequest(Socket) {
+    HandleAPIRequest() {
         ; 检查路由表中是否存在该URL路径
         if not this.Path.Has(this.Req.Url) {    ; 路由表中没有此路径，返回
             return 404
@@ -415,7 +415,7 @@ class HttpServer extends Socket.Server {
     }
     ;@region 2.HandleWebRequest
     ; 处理Web请求
-    HandleWebRequest(Socket) {
+    HandleWebRequest() {
         ; Web访问IP控制检查
         Path := Http.NormalizePath(A_ScriptDir . this.Req.Url)
         ; 检查文件是否存在且有对应的MIME类型
@@ -457,10 +457,10 @@ class HttpServer extends Socket.Server {
         this.Res.Headers["Content-Location"] := this.Req.Url
         this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
         this.Res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
-        if this.Req.Method = "Allow" {
+        if this.Req.Method = "OPTIONS" {
             this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
         }
-        ; this.Res.Headers["Connection"] := "close"
+        ; this.Res.Headers["Connection"] := "close" ; 关闭长连接
     }
     ;@region 2.DefResBody
     ; 设置默认响应体
@@ -481,7 +481,7 @@ class HttpServer extends Socket.Server {
     ;@region 2.SetPaths
     ; 设置请求路径对应的处理函数
     SetPaths(Paths) {
-        if not Type(Paths) = "Map" {
+        if Type(Paths) != "Map" {
             throw TypeError(Format(NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_, Type(Paths)))
         }
         for _, F in Paths {
