@@ -29,7 +29,8 @@ A crude, rough and makeshift AHKv2 HTTP server.
 ## 使用
 - 当URL路径被访问时调用`paths`中相应的处理函数。  
 - 调用处理函数时，传入两个参数，请求`Request`和响应`Response`，处理函数必须有两个参数接受传入。    
-- `Request`类实例属性`Body`包含请求体，类型为`Buffer`，可以直接调用`Body()`并传入编码来提取文本。  
+- `Request`类实例属性`BodyBuf`包含请求体，类型为`Buffer`。
+    - 通过`Body`动态属性获取，或直接调用`Body()`并传入编码来提取文本。  
 - 调用`Response`类实例方法`SetBodyText`发送文本，传入字符串，可选传入编码。  
 - 调用`Response`类实例方法`SetBodyFile`发送文件，传入文件路径，可选传入编码。  
 - 其他请求头、响应头等，可以直接访问传入处理函数的参数`Request`和`Response`的属性。
@@ -41,7 +42,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
     获取到的访问者IP并不一定是准确的真实IP，也可能是其他转发路由的IP。
 - 其他暂无，没什么需求。
 ## 请求 Request
-### 可用属性
+### 可用 Request 属性
 | 属性     | 描述             | 类型   | 默认值   |
 | -------- | ---------------- | ------ | -------- |
 | Request  | 未解析的原始请求 | String |          |
@@ -52,7 +53,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | BodyBuf  | 请求体           | Buffer |          |
 | GetArgs  | 查询参数         | Map    |          |
 
-### 可用方法
+### 可用 Request 方法
 #### `GetBodyText(Encoding := "UTF-8")`
 从`Req.BodyBuf`中以指定编码提取文本。
 - **参数**
@@ -62,7 +63,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
     - `String`: 文本
 
 ## 响应 Response
-### 可用属性
+### 可用 Response 属性
 | 属性     | 描述               | 类型          | 默认值                                                           |
 | -------- | ------------------ | ------------- | ---------------------------------------------------------------- |
 | Response | 最终生成的HTTP响应 | String        |                                                                  |
@@ -72,7 +73,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | Headers  | 响应头             | Map           | 必要的`Content-Length`、`Content-Type`和`HttpServer`预设的响应头 |
 | Body     | 响应体             | String/Buffer | 类型取决于响应体内容，默认为字符串。                             |
 
-### 可用方法
+### 可用 Response 方法
 #### `SetBodyText(Str, Encoding := "")`
 将文本设置为响应体，包含响应头`Content-Length`、`Content-Type`的设置。无返回值。
 - **参数**
