@@ -8,7 +8,7 @@ path["/logo"] := logo
 path["/hello"] := HelloWorld
 ; path["/debug"] := debug
 path["/hash"] := hash
-; path["/echo"] := echo
+path["/echo"] := echo
 
 Server := HttpServer(10000)
 Server.SetPaths(path)
@@ -50,7 +50,7 @@ debug(req, res) {
         res.Body .= k ": " v "`n"
 }
 echo(req, res) {
-    OutputDebug req.Body
+    OutputDebug req.Body("utf-8")
 }
 hash(req, res) {
     try FileDelete "hash"

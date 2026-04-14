@@ -29,7 +29,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 ## 使用
 - 当URL路径被访问时调用`paths`中相应的处理函数。  
 - 调用处理函数时，传入两个参数，请求`Request`和响应`Response`，处理函数必须有两个参数接受传入。    
-- 调用`Request`类实例方法`GetBodyText`来获取请求体。  
+- `Request`类实例属性`Body`包含请求体，类型为`Buffer`，可以直接调用`Body()`并传入编码来提取文本。  
 - 调用`Response`类实例方法`SetBodyText`发送文本，传入字符串，可选传入编码。  
 - 调用`Response`类实例方法`SetBodyFile`发送文件，传入文件路径，可选传入编码。  
 - 其他请求头、响应头等，可以直接访问传入处理函数的参数`Request`和`Response`的属性。
@@ -41,7 +41,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
     获取到的访问者IP并不一定是准确的真实IP，也可能是其他转发路由的IP。
 - 其他暂无，没什么需求。
 ## 请求 Request
-**可用属性**
+### 可用属性
 | 属性     | 描述             | 类型   | 默认值   |
 | -------- | ---------------- | ------ | -------- |
 | Request  | 未解析的原始请求 | String |          |
@@ -49,33 +49,50 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | Url      | 请求URL          | String |          |
 | Protocol | HTTP协议版本     | String | HTTP/1.1 |
 | Headers  | 请求头           | Map    |          |
-| Body     | 请求体           | String |          |
+| BodyBuf  | 请求体           | Buffer |          |
 | GetArgs  | 查询参数         | Map    |          |
 
-**可用方法**包含以下方法：  
-| 方法        | 描述           | 参数             | 返回值                    |
-| ----------- | -------------- | ---------------- | ------------------------- |
-| GetBodyText | 获取请求体文本 | 传入请求体的编码 | 从body Buffer中提取的文本 |
+### 可用方法
+#### `GetBodyText(Encoding := "UTF-8")`
+从`Req.BodyBuf`中以指定编码提取文本。
+- **参数**
+    - `encoding` (**String**, 可选): 请求体的文本编码，默认值：`UTF-8`。  
+        可从`Content-Type`中提取客户端设置的编码。
+- **返回**
+    - `String`: 文本
+
 ## 响应 Response
-**可用属性**
-| 属性     | 描述               | 类型          | 默认值                                                                 |
-| -------- | ------------------ | ------------- | ---------------------------------------------------------------------- |
-| Response | 最终生成的HTTP响应 | String        |                                                                        |
-| Line     | HTTP协议版本       | String        | HTTP/1.1                                                               |
-| sCode    | 响应代码           | Int           | 200                                                                    |
-| sMsg     | 响应消息           | String        | OK                                                                     |
-| Headers  | 响应头             | Map           | 必要的`Content-Length`、`Content-Type`和`HttpServer`预设的响应头       |
-| Body     | 响应体             | String/Buffer | 如果请求过长，产生分段，则`body`为`Buffer`。 使用`GetBodyText`提取文本 |
+### 可用属性
+| 属性     | 描述               | 类型          | 默认值                                                           |
+| -------- | ------------------ | ------------- | ---------------------------------------------------------------- |
+| Response | 最终生成的HTTP响应 | String        |                                                                  |
+| Line     | HTTP协议版本       | String        | HTTP/1.1                                                         |
+| sCode    | 响应代码           | Int           | 200                                                              |
+| sMsg     | 响应消息           | String        | OK                                                               |
+| Headers  | 响应头             | Map           | 必要的`Content-Length`、`Content-Type`和`HttpServer`预设的响应头 |
+| Body     | 响应体             | String/Buffer | 类型取决于响应体内容，默认为字符串。                             |
 
-**可用方法**
-| 方法        | 描述                           | 参数                                       | 返回值 |
-| ----------- | ------------------------------ | ------------------------------------------ | ------ |
-| SetBodyText | 设置响应体文本                 | 传入文本，可选传入编码                     | 无     |
-| SetBodyFile | 设置响应体文件                 | 传入文件路径，可选传入编码                 | 无     |
-| SetErrorRes | 设置错误响应，仅支持部分响应码 | 传入错误码                                 | 无     |
-| SetRedirect | 设置重定向                     | 传入重定向的URL, 可选传入状态码（默认302） | 无     |
-
-如果`SetBodyText`、`SetBodyFile`传入编码，则响应头`Content-Type`将添加`"; charset=" Encoding `
+### 可用方法
+#### `SetBodyText(Str, Encoding := "")`
+将文本设置为响应体，包含响应头`Content-Length`、`Content-Type`的设置。无返回值。
+- **参数**
+    - `Str` (**String**, 必填): 文本。
+    - `Encoding` (**String**, 可选): 传入编码，则响应头`Content-Type`将添加`"; charset=" Encoding `。
+#### `SetBodyFile(FilePath, Encoding := "")`
+将文件作为响应体，包含响应头`Content-Length`、`Content-Type`的设置。无返回值。
+- **参数**
+    - `FilePath` (**String**, 必填): 文件路径，不存在则抛出错误。
+    - `Encoding` (**String**, 可选): 传入编码，则响应头`Content-Type`将添加`"; charset=" Encoding `。
+#### `SetErrorRes(Code)`
+设置错误响应，仅支持部分响应码。
+无返回值。
+- **参数**
+    - `Code` (**Int**, 必填): 错误码。
+#### `SetRedirect(Url, Code := 302)`
+设置重定向。无返回值。
+- **参数**
+    - `Url` (**String**, 必填): 重定向的URL。
+    - `Code` (**Int**, 可选): 状态码，默认为302。
 ## HttpServer的预设响应头
  - Content-Location: 请求的URL
  - Date: 本地时间
@@ -86,7 +103,8 @@ A crude, rough and makeshift AHKv2 HTTP server.
 # 更新日志
 - 2026/02/16  
     现在服务端的大部分行为都可以通过派生类，重写方法来修改。  
-
+- 2026/04/14
+    请求类的属性`Body`改为动态属性，包含`call`属性，默认使用`UTF-8`调用`GetBodyText()`方法。
 # 关于HTTPS
 使用caddy反向代理来实现HTTPS，至少我是这么做的。  
 觉得`http://ip:port`太长可以尝试使用`.localhost`域名，局域网尝试使用设备名称+`.lan`或`.local`域名。  
@@ -103,7 +121,7 @@ ahk.localhost {
  - [x] 尝试优化请求体过长（极限大概是几KB）截断的问题，现有的处理逻辑会导致字符的字节丢失。  
  - [x] 将`MimeType`、`ErrorResMsg`移至`http`类
  - [x] `setbody`、`getbody`的方法移至相应类
- - [ ] 重写请求类的body为动态属性
- - [ ] 向请求类传入响应类实例，发生错误时由请求类直接操作响应类，省去在函数调用间传递错误码。
+ - [x] 重写请求类的body为动态属性
+ - [ ] ~~向请求类传入响应类实例，发生错误时由请求类直接操作响应类，省去在函数调用间传递错误码。~~
 ### 优化方向
 响应头默认初始设置`Content-Type`，能省下大概3个if语句。

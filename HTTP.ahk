@@ -114,6 +114,7 @@ class Http {
         504, { sCode: 504, sMsg: 'Gateway Timeout', Body: "504 Gateway Timeout" }, ; 作为网关或代理时无法及时获得响应
         505, { sCode: 505, sMsg: 'HTTP Version Not Supported', Body: "505 HTTP Version Not Supported" } ; 服务器不支持请求使用的HTTP版本
     )
+    static VisibleCRLF(str) => StrReplace(StrReplace(str, "`n", "\n"), "`r", "\r")
 }
 ; 请求类
 ;@region 1.Request
@@ -124,10 +125,15 @@ class Request {
         this.Url := ""  ; 请求URL
         this.Protocol := "HTTP/1.1" ; 请求协议
         this.Headers := Map()   ; 请求头
-        this.Body := "" ; 请求体
+        this.BodyBuf := Buffer()  ; 请求体缓冲对象
         this.GetArgs := Map()  ; GET请求参数
         this.Block := [] ; 分块列表
         this.BlockSize := 0
+        this.DefineProp("Body", {
+            Get: (this) => (this.BodyBuf),
+            Set: (this, Value) => (this.BodyBuf := (Value is Buffer) ? Value : Buffer()),
+            Call: (this, Encoding := "UTF-8") => (this.GetBodyText(Encoding))
+        })
     }
     ;@region 2.Parse
     ; 解析请求消息,一大坨代码.
@@ -142,10 +148,10 @@ class Request {
                 return
             }
             ; 合并所有分块数据为完整请求体
-            this.Body := Buffer(this.BlockSize)
+            this.BodyBuf := Buffer(this.BlockSize)
             Size := 0
             for i in this.Block {
-                DllCall("RtlCopyMemory", "Ptr", this.Body.ptr + Size, "Ptr", i.ptr, "UInt", i.size)
+                DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + Size, "Ptr", i.ptr, "UInt", i.size)
                 Size += i.size
             }
             ; 验证合并后的数据大小是否正确
@@ -162,16 +168,16 @@ class Request {
         ; 以下pos不包含最末尾的\r\n
         LineEndPos := InStr(msg, "`r`n") - 1    ; 获取消息行结束位置
         HeadersPos := { start: LineEndPos + 3, end: InStr(msg, "`r`n`r`n") }
-        BodyStartPos := HeadersPos.end + 4
+        BodyStartPos := HeadersPos.end + 3
 
         ; 检查HTTP请求格式是否正确
         if LineEndPos < 0 or HeadersPos.end = 0 {
-            Log.Error(NOT_A_STANDARD_HTTP_REQUEST)
+            Log.Error(NOT_A_STANDARD_HTTP_REQUEST "Line")
             return 400
         }
         ; 检查协议标识是否正确
         if not InStr(SubStr(msg, LineEndPos - 9, 8), "HTTP/") {
-            Log.Error(NOT_A_STANDARD_HTTP_REQUEST)
+            Log.Error(NOT_A_STANDARD_HTTP_REQUEST "Protocol")
             return 400
         }
         ; 解析请求行和请求头
@@ -180,21 +186,17 @@ class Request {
         } else if Code := this.ParseHeaders(SubStr(msg, HeadersPos.start, HeadersPos.end - HeadersPos.start)) {
             return Code
         }
-        body := SubStr(msg, BodyStartPos)
+        body := Buffer(ReqMsg.size - BodyStartPos)
+        DllCall("RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + BodyStartPos, "UInt", body.Size)
         ; 处理POST请求的分块传输
         if this.Method = "POST" and this.Block.Length = 0 {
-            if this.Headers.Get("Content-Length", 0) > HTTP.GetBodySize(body) {
-                temp := StrPut(SubStr(msg, 1, HeadersPos.end + 2), "utf-8")    ;请求体的长度
-                if temp {
-                    body := Buffer(ReqMsg.size - temp)
-                    DllCall("RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + temp, "UInt", ReqMsg.size - temp)
-                    this.Block.Push(body)
-                    this.BlockSize += body.size
-                }
+            if this.Headers.Get("Content-Length", 0) > body.Size {
+                this.Block.Push(body)
+                this.BlockSize += body.size
                 return
             }
         }
-        this.Body := body
+        this.BodyBuf := body
         this.Request := msg
         return 0
     }
@@ -236,14 +238,9 @@ class Request {
     }
     ;@region 2.GetBodyText
     ; 获取请求体
-    GetBodyText(encoding := "UTF-8") {
-        if this.Body is Primitive {
-            return this.Body
-        } else {
-            return StrGet(this.Body, this.Body.size, encoding)
-        }
+    GetBodyText(Encoding := "UTF-8") {
+        return StrGet(this.Body, this.Body.size, Encoding)
     }
-
 }
 ;@region 1.Response
 class Response {
