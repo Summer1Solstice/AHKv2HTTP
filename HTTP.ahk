@@ -453,7 +453,7 @@ class HttpServer extends Socket.Server {
     DefResHeader() {
         this.Res.Headers["Content-Location"] := this.Req.Url
         this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
-        this.Res.Headers["Date"] := FormatTime("L0x0409", "ddd, d MMM yyyy HH:mm:ss")
+        this.Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
         if this.Req.Method = "OPTIONS" {
             this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
         }
