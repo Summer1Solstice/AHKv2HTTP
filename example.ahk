@@ -1,13 +1,12 @@
 #Requires AutoHotkey v2.0
 Persistent
 #Include HTTP.ahk
-#Include <XZ\GetFileHash>
+; #Include <XZ\GetFileHash>
 path := Map()
 path["/"] := root
 path["/logo"] := logo
 path["/hello"] := HelloWorld
-; path["/debug"] := debug
-path["/hash"] := hash
+; path["/hash"] := hash
 path["/echo"] := echo
 
 Server := HttpServer(10000)
@@ -45,21 +44,17 @@ HelloWorld(req, res) {
 logo(req, res) {
     res.SetBodyFile("logo.png")
 }
-debug(req, res) {
-    for k, v in req.headers
-        res.Body .= k ": " v "`n"
-}
 echo(req, res) {
     OutputDebug req.Body("utf-8")
 }
-hash(req, res) {
-    try FileDelete "hash"
-    FileAppend(req.Body, "hash", "Raw")
-    OutputDebug req.Headers["hash"] "`n"
-    OutputDebug md5sum("hash") "`n"
-    if req.Headers["hash"] = md5sum("hash") {
-        OutputDebug "Yes"
-    } else {
-        OutputDebug "No"
-    }
-}
+; hash(req, res) {
+;     try FileDelete "hash"
+;     FileAppend(req.Body, "hash", "Raw")
+;     OutputDebug req.Headers["hash"] "`n"
+;     OutputDebug md5sum("hash") "`n"
+;     if req.Headers["hash"] = md5sum("hash") {
+;         OutputDebug "Yes"
+;     } else {
+;         OutputDebug "No"
+;     }
+; }

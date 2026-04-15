@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/04/12
- * @version 3.2.2
+ * @date 2026/04/15
+ * @version 3.2.3
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -28,6 +28,8 @@ class Log {
         Time := FormatTime(, "HH:mm:ss")
         Text := Fn ? Format("[{1}] {2}", Fn, Text) : Text
         Log := Format("{1} {2:-5} - {3}`n", Time, logLevel, Text)
+        global A_DebuggerName
+        IsSet(A_DebuggerName) ? OutputDebug(Log) : ""
         FileAppend(Log, "logs\" Date ".log", "utf-8")
     }
     ; 调试
@@ -454,9 +456,9 @@ class HttpServer extends Socket.Server {
         this.Res.Headers["Content-Location"] := this.Req.Url
         this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
         this.Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
-        if this.Req.Method = "OPTIONS" {
-            this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
-        }
+        ; if this.Req.Method = "OPTIONS" {
+        ;     this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
+        ; }
         ; this.Res.Headers["Connection"] := "close" ; 关闭长连接
     }
     ;@region 2.DefResBody
@@ -476,7 +478,7 @@ class HttpServer extends Socket.Server {
         Http.MimeType := HTTP.ParseMimes(FileRead(FilePath, "utf-8 `n"))
     }
     ;@region 2.SetPaths
-    ; 设置请求路径对应的处理函数
+    ; 设置请求路径对应的路由函数
     SetPaths(Paths) {
         if Type(Paths) != "Map" {
             throw TypeError(Format(NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_, Type(Paths)))
