@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/04/15
- * @version 3.2.3
+ * @date 2026/04/20
+ * @version 3.3.0
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -131,12 +131,14 @@ class Request {
         this.GetArgs := Map()  ; GET请求参数
         this.Block := [] ; 分块列表
         this.BlockSize := 0
+        this.IP := ""
         this.DefineProp("Body", {
             Get: (this) => (this.BodyBuf),
             Set: (this, Value) => (this.BodyBuf := (Value is Buffer) ? Value : Buffer()),
-            Call: (this, Encoding := "UTF-8") => (this.GetBodyText(Encoding))
+            Call: (this, Encoding := this.Encoding) => (this.GetBodyText(Encoding))
         })
     }
+    Encoding := "UTF-8"
     ;@region 2.Parse
     ; 解析请求消息,一大坨代码.
     Parse(ReqMsg) {
@@ -240,7 +242,7 @@ class Request {
     }
     ;@region 2.GetBodyText
     ; 获取请求体
-    GetBodyText(Encoding := "UTF-8") {
+    GetBodyText(Encoding := this.Encoding) {
         return StrGet(this.Body, this.Body.size, Encoding)
     }
 }
@@ -254,6 +256,7 @@ class Response {
         this.Headers := Map()   ; 响应头
         this.Body := "" ; 响应体
     }
+    Encoding := "UTF-8"
     ;@region 2.BuildLine
     ; 构建响应行
     BuildLine() {
@@ -297,7 +300,7 @@ class Response {
     }
     ;@region 2.SetBodyText
     ; 设置响应体(文本)
-    SetBodyText(Str, Encoding := "") {
+    SetBodyText(Str, Encoding := this.Encoding) {
         this.Headers["Content-Length"] := HTTP.GetStrSize(Str)
         if not this.Headers.Has("Content-Type") {
             this.Headers["Content-Type"] := Encoding
@@ -307,7 +310,7 @@ class Response {
     }
     ;@region 2.SetBodyFile
     ; 设置响应体(文件)
-    SetBodyFile(FilePath, Encoding := "") {
+    SetBodyFile(FilePath, Encoding := this.Encoding) {
         if !FileExist(FilePath) {
             Log.Error(Format("{1} {2}", FilePath, FILE_NOT_FOUND_OR_PATH_ERROR))
             this.SetErrorRes(404)
@@ -340,9 +343,8 @@ class HttpServer extends Socket.Server {
     Req := Request()    ; 请求类
     Res := Response()   ; 响应类
     Web := false    ; 是否开启web功能
-    EnableIPCheck := true  ; 是否开启IP限制
-    CallbackFunc := Map()
-    CallbackFunc.CaseSense := false
+    onFunc := Map()
+    onFunc.CaseSense := false
     ;@region 2.onACCEPT
     onACCEPT(err) {
         this.client := this.AcceptAsClient()
@@ -350,15 +352,11 @@ class HttpServer extends Socket.Server {
         onread(Socket, err) {
             if Socket.MsgSize() {
                 ; IP访问控制检查
-                if this.EnableIPCheck {
-                    if this.CallbackFunc.Has("isIPAllowed")
-                        and not this.CallbackFunc["isIPAllowed"](
-                            SubStr(Socket.addr, 1, InStr(Socket.addr, ":") - 1))
-                    {
-                        Log.Warn(Format(REQUEST_DENIED_FROM_, Socket.addr), "")
-                        Socket.__Delete()
-                        return
-                    }
+                this.Req.IP := SubStr(Socket.addr, 1, InStr(Socket.addr, ":") - 1)
+                if this.onFunc.Has("isIPAllow") and not this.onFunc["isIPAllow"](this.Req.IP) {
+                    Log.Warn(Format(REQUEST_DENIED_FROM_, Socket.addr), "")
+                    Socket.__Delete()
+                    return
                 }
                 this.Main(Socket)
             }
@@ -382,6 +380,9 @@ class HttpServer extends Socket.Server {
             this.SendResponse(Socket)   ; 发送响应
             return Code
         }
+        if this.onFunc.Has("PreHandleReq") and not this.onFunc["PreHandleReq"](this.Req, this.Res) {
+            return Socket.__Delete()
+        }
         ; 处理业务逻辑
         if Code := this.HandleRequest() {  ; 处理请求
             this.Res.SetErrorRes(Code)
@@ -396,7 +397,7 @@ class HttpServer extends Socket.Server {
         ; 尝试处理API调用请求
         if not Code := this.HandleAPIRequest() {
             return 0
-        } else if this.Web and not Code := this.HandleWebRequest() { ; 如果启用Web功能，尝试处理文件请求
+        } else if this.Web and not Code := this.HandleWebRequest() { ; 如果启用Web功能，尝试处理Web请求
             return 0
         } else {
             return Code
@@ -430,6 +431,9 @@ class HttpServer extends Socket.Server {
         this.DefResLine()    ; 设置响应行
         this.DefResHeader()    ; 设置响应头
         this.DefResBody()    ; 设置响应体
+        if this.onFunc.Has("PreSendRes") and not this.onFunc["PreSendRes"](this.Req, this.Res) {
+            return Socket.__Delete()
+        }
         ; 根据body类型发送响应
         if Type(this.Res.Body) = "Buffer" {
             Socket.SendText(this.Res.BuildResponse())

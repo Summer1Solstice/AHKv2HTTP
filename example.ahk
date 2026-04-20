@@ -13,9 +13,9 @@ Server := HttpServer(10000)
 Server.SetPaths(path)
 Server.LoadMimeType("mimetypes")
 Server.Web := true	; 是否开启web服务
-Server.EnableIPCheck := true	; 是否开启IP限制
+Server.onFunc["isIPAllow"] := IPAudit
 IPAudit(ip) {
-    static AllowIP := Map("127.0.0.1", true, "0.0.0.0", true)   ; 允许的IP
+    static AllowIP := Map("127.0.0.1", true, "::1", true)   ; 允许的IP
     if AllowIP.Has(ip) {
         return true
     } else {
@@ -28,8 +28,8 @@ IPAudit(ip) {
         }
     }
 }
-Server.CallbackFunc["isIPAllowed"] := IPAudit
-
+Server.onFunc["PreHandleReq"] := (req, res) => (1, OutputDebug(req.Headers.Get("X-Real-Ip", 0)))
+Server.onFunc["PreSendRes"] := (*) => (1)
 root(req, res) {
     ; MsgBox "Hello World!"
     res.Body := "Hello World!(TestVersion)"
@@ -45,7 +45,7 @@ logo(req, res) {
     res.SetBodyFile("logo.png")
 }
 echo(req, res) {
-    OutputDebug req.Body("utf-8")
+    res.SetBodyText(req.Request)
 }
 ; hash(req, res) {
 ;     try FileDelete "hash"

@@ -11,7 +11,6 @@ A crude, rough and makeshift AHKv2 HTTP server.
 # 已知缺陷
 输出错误日志待完善。  
 请求体过长截断的问题已经解决，使用大小`9.76M`的UTF-8编码txt文件进行测试没有问题，但没有做更多测试。  
-感觉在编码方面还是有隐患。~~也可能是我多虑了~~
 # 使用方法
 ## 开始
 1. 实例化类`HttpServer`，同时传入端口号。  
@@ -22,10 +21,9 @@ A crude, rough and makeshift AHKv2 HTTP server.
     jpg: image/jpeg
     ```
 ### 可选配置项
-| 配置项        | 默认值 | 说明            |
-| ------------- | ------ | --------------- |
-| Web           | false  | 是否开启Web服务 |
-| EnableIPCheck | true   | 开启IP限制      |
+| 配置项 | 默认值 | 说明            |
+| ------ | ------ | --------------- |
+| Web    | false  | 是否开启Web服务 |
 ## 使用
 - 当URL路径被访问时调用`paths`中相应的处理函数。  
 - 调用处理函数时，传入两个参数，请求`Request`和响应`Response`，处理函数必须有两个参数接受传入。    
@@ -34,73 +32,103 @@ A crude, rough and makeshift AHKv2 HTTP server.
 - 调用`Response`类实例方法`SetBodyText`发送文本，传入字符串，可选传入编码。  
 - 调用`Response`类实例方法`SetBodyFile`发送文件，传入文件路径，可选传入编码。  
 - 其他请求头、响应头等，可以直接访问传入处理函数的参数`Request`和`Response`的属性。
-### 回调函数
-`HttpServer`包含一个`Map`类型的属性`CallbackFunc`用于存放回调函数，其大小写不敏感。
-- `isIPAllowed`  
-    参数为访问的IP，需`EnableIPCheck`为`true`。  
-    函数返回`true`则允许访问，返回`false`则拒绝访问。  
-    获取到的访问者IP并不一定是准确的真实IP，也可能是其他转发路由的IP。
-- 其他暂无，没什么需求。
-## 请求 Request
-### 可用 Request 属性
-| 属性     | 描述             | 类型   | 默认值   |
-| -------- | ---------------- | ------ | -------- |
-| Request  | 未解析的原始请求 | String |          |
-| Method   | 请求方法         | String |          |
-| Url      | 请求URL          | String |          |
-| Protocol | HTTP协议版本     | String | HTTP/1.1 |
-| Headers  | 请求头           | Map    |          |
-| BodyBuf  | 请求体           | Buffer |          |
-| GetArgs  | 查询参数         | Map    |          |
-
-### 可用 Request 方法
-#### `GetBodyText(Encoding := "UTF-8")`
+# 请求 Request 类
+## 可用 Req 属性
+| 属性     | 描述                 | 类型   | 默认值   |
+| -------- | -------------------- | ------ | -------- |
+| Request  | 未解析的原始请求     | String |          |
+| Method   | 请求方法             | String |          |
+| Url      | 请求URL              | String |          |
+| Protocol | HTTP协议版本         | String | HTTP/1.1 |
+| Headers  | 请求头               | Map    |          |
+| BodyBuf  | 请求体               | Buffer |          |
+| GetArgs  | 查询参数             | Map    |          |
+| IP       | 不一定是客户端的IP   | String |          |
+| Encoding | 请求类的默认文本编码 | String | UTF-8    |
+## 可用 Request 方法
+### `GetBodyText(Encoding := "UTF-8")`
 从`Req.BodyBuf`中以指定编码提取文本。
 - **参数**
-    - `encoding` (**String**, 可选): 请求体的文本编码，默认值：`UTF-8`。  
+    - `encoding` (**String**, 可选): 请求体的文本编码，默认值：使用默认文本编码。  
         可从`Content-Type`中提取客户端设置的编码。
 - **返回**
     - `String`: 文本
 
-## 响应 Response
-### 可用 Response 属性
-| 属性     | 描述               | 类型          | 默认值                                                           |
-| -------- | ------------------ | ------------- | ---------------------------------------------------------------- |
-| Response | 最终生成的HTTP响应 | String        |                                                                  |
-| Line     | HTTP协议版本       | String        | HTTP/1.1                                                         |
-| sCode    | 响应代码           | Int           | 200                                                              |
-| sMsg     | 响应消息           | String        | OK                                                               |
-| Headers  | 响应头             | Map           | 必要的`Content-Length`、`Content-Type`和`HttpServer`预设的响应头 |
-| Body     | 响应体             | String/Buffer | 类型取决于响应体内容，默认为字符串。                             |
+# 响应 Response
+## 可用 Response 属性
+| 属性     | 描述                 | 类型          | 默认值                                                           |
+| -------- | -------------------- | ------------- | ---------------------------------------------------------------- |
+| Response | 最终生成的HTTP响应   | String        |                                                                  |
+| Line     | HTTP协议版本         | String        | HTTP/1.1                                                         |
+| sCode    | 响应代码             | Int           | 200                                                              |
+| sMsg     | 响应消息             | String        | OK                                                               |
+| Headers  | 响应头               | Map           | 必要的`Content-Length`、`Content-Type`和`HttpServer`预设的响应头 |
+| Body     | 响应体               | String/Buffer | 类型取决于响应体内容，默认为字符串。                             |
+| Encoding | 响应类的默认文本编码 | String        | UTF-8                                                            |
 
-### 可用 Response 方法
-#### `SetBodyText(Str, Encoding := "")`
+## 可用 Response 方法
+### `SetBodyText(Str, Encoding := "")`
 将文本设置为响应体，包含响应头`Content-Length`、`Content-Type`的设置。无返回值。
 - **参数**
     - `Str` (**String**, 必填): 文本。
     - `Encoding` (**String**, 可选): 传入编码，则响应头`Content-Type`将添加`"; charset=" Encoding `。
-#### `SetBodyFile(FilePath, Encoding := "")`
+### `SetBodyFile(FilePath, Encoding := "")`
 将文件作为响应体，包含响应头`Content-Length`、`Content-Type`的设置。无返回值。
 - **参数**
     - `FilePath` (**String**, 必填): 文件路径，不存在则抛出错误。
     - `Encoding` (**String**, 可选): 传入编码，则响应头`Content-Type`将添加`"; charset=" Encoding `。
-#### `SetErrorRes(Code)`
+### `SetErrorRes(Code)`
 设置错误响应，仅支持部分响应码。
 无返回值。
 - **参数**
     - `Code` (**Int**, 必填): 错误码。
-#### `SetRedirect(Url, Code := 302)`
+### `SetRedirect(Url, Code := 302)`
 设置重定向。无返回值。
 - **参数**
     - `Url` (**String**, 必填): 重定向的URL。
     - `Code` (**Int**, 可选): 状态码，默认为302。
-## HttpServer的预设响应头
+# HttpServer 类
+## 可用属性
+- `Web`: 是否在访问路径无对应路由函数时，尝试解析为`Web`请求。  
+    为真，尝试返回本地文件。 为假，则返回`404`错误。
+- `onFunc`：存储回调函数，不区分大小写。
+    可用的值有`isIPAllow`、`PreHandleReq`、`PreSendRes`详见回调函数章节。
+## 可用方法
+### `LoadMimeType(FilePath)`
+加载MIME类型。
+- **参数**
+    - `FilePath` (**String**, 必填): mimetype文件路径。
+### `SetPaths(Paths)`
+设置访问路径对应路由函数。
+包含对路由函数的参数数目检查。
+- **参数**
+    - `Paths` (**Map**, 必填): 保存路径和路由函数的映射关系的`Map`对象。
+## 回调函数
+### `isIPAllow(IP)`
+检测IP是否允许访问。
+- **传入**
+    - `IP` (**String**): 向服务端发起连接的IP。不一定是客户端的IP。
+- **返回**
+    - 返回`true`表示允许访问，返回`false`表示拒绝访问。
+### `PreHandleReq(req, res)`、 `PreSendRes(req, res)`
+在解析请求前、返送响应前，执行的回调函数。
+- **传入**
+    - `req` (**class**): 请求类的实例对象。
+    - `res` (**class**): 响应类的实例对象。
+- **返回**
+    - 返回`true`继续向下执行，返回`false`则拒绝访问。
+## 对响应的预设方法
+`DefResLine`、`DefResHeader`、`DefResBody`，单个方法包含了对响应的预设。
+需要通过派生类进行方法重写来覆盖`HttpServer`类对响应的预设行为。
+### `DefResHeader` 预设响应头
  - Content-Location: 请求的URL
- - Date: 本地时间
+ - Date: RFC1123 格式的UTC时间
  - Server: AutoHotkey版本
+### `DefResBody` 预设响应体
+请求方法为`HEAD`时，清空响应体。
+请求方法为`TRACE`时，返回原始请求（可能不包含完整请求体）。
 ## 日志
 预期内的错误会输出日志到`A_WorkingDir\logs\{date}.log`文件。
-
 # 更新日志
 - 2026/02/16  
     现在服务端的大部分行为都可以通过派生类，重写方法来修改。  
@@ -114,6 +142,7 @@ ahk.localhost {
 	reverse_proxy :port
 }
 ```
+> 302重定向应用占用`80/443`端口，可将其设置为监听`127.0.0.2`。
 # 其他
 ### TODO
  - [x] 细化日志
