@@ -1,8 +1,8 @@
 # AHKv2HTTP
-A crude, rough and makeshift AHKv2 HTTP server.
-**警告**：这个脚本从设计到实现，都很简单。
-可能存在一些意料之中和意料之外的问题，但只要还能满足基本需求，就不会进一步改进。
-如果需要简单的HTTPserver建议尝试Python的http.server
+适用于AutoHotkey v2的HTTP服务器。  
+**警告**：这个脚本从设计到实现，都很简单。  
+可能存在一些意料之中和意料之外的问题，但只要还能满足基本需求，就不会进一步改进。  
+如果需要简单的HTTPserver建议尝试Python的http.server  
 # 注意事项
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)
 2. 同时最好只有一个连接，没有针对多连接的处理。
@@ -125,7 +125,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
  - Date: RFC1123 格式的UTC时间
  - Server: AutoHotkey版本
 ### `DefResBody` 预设响应体
-请求方法为`HEAD`时，清空响应体。
+请求方法为`HEAD`时，清空响应体。  
 请求方法为`TRACE`时，返回原始请求（可能不包含完整请求体）。
 ## 日志
 预期内的错误会输出日志到`A_WorkingDir\logs\{date}.log`文件。
