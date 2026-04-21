@@ -11,7 +11,6 @@
 输出错误日志待完善。  
 请求体过长截断的问题已经解决，使用大小`9.76M`的UTF-8编码txt文件进行测试没有问题，但没有做更多测试。  
 # 使用方法
-[示例脚本](example.ahk)
 ## 开始
 1. 实例化类`HttpServer`，同时传入端口号。  
 2. 调用类实例方法`SetPaths`传入URL路径对应的处理函数，变量类型`Map`。  
@@ -32,6 +31,9 @@
 - 调用`Response`类实例方法`SetBodyText`发送文本，传入字符串，可选传入编码。  
 - 调用`Response`类实例方法`SetBodyFile`发送文件，传入文件路径，可选传入编码。  
 - 其他请求头、响应头等，可以直接访问传入处理函数的参数`Request`和`Response`的属性。
+### 示例
+[示例脚本](example.ahk)  
+[mimetype](mimetypes)
 # 请求 Request 类
 ## 可用 Req 属性
 | 属性     | 描述                 | 类型   | 默认值   |
