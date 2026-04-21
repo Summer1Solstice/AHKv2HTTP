@@ -28,7 +28,7 @@ IPAudit(ip) {
         }
     }
 }
-Server.onFunc["PreHandleReq"] := (req, res) => (1, OutputDebug(req.Headers.Get("X-Real-Ip", 0)))
+Server.onFunc["PreHandleReq"] := (req, res) => (OutputDebug(req.Headers.Get("X-Real-Ip", 0)), 1)
 Server.onFunc["PreSendRes"] := (*) => (1)
 root(req, res) {
     ; MsgBox "Hello World!"

@@ -1,17 +1,17 @@
 # AHKv2HTTP
 A crude, rough and makeshift AHKv2 HTTP server.
-#### 警告：这个脚本从设计到实现，都很简单。
-#### 可能存在一些意料之中和意料之外的问题，但只要还能满足基本需求，就不会进一步改进。
-#### 如果需要简单的HTTPserver建议尝试Python的http.server
+**警告**：这个脚本从设计到实现，都很简单。
+可能存在一些意料之中和意料之外的问题，但只要还能满足基本需求，就不会进一步改进。
+如果需要简单的HTTPserver建议尝试Python的http.server
 # 注意事项
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)
-2. 没有刻意注意字符编码，在这方面可能有BUG。
-3. 同时最好只有一个连接，没有针对多连接的处理。
-4. 不支持复杂的HTTP协议机制，如：分块传输。
+2. 同时最好只有一个连接，没有针对多连接的处理。
+3. 不支持复杂的HTTP协议机制，如：分块传输。
 # 已知缺陷
 输出错误日志待完善。  
 请求体过长截断的问题已经解决，使用大小`9.76M`的UTF-8编码txt文件进行测试没有问题，但没有做更多测试。  
 # 使用方法
+[示例脚本](example.ahk)
 ## 开始
 1. 实例化类`HttpServer`，同时传入端口号。  
 2. 调用类实例方法`SetPaths`传入URL路径对应的处理函数，变量类型`Map`。  
@@ -45,7 +45,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | GetArgs  | 查询参数             | Map    |          |
 | IP       | 不一定是客户端的IP   | String |          |
 | Encoding | 请求类的默认文本编码 | String | UTF-8    |
-## 可用 Request 方法
+## 可用 Req 方法
 ### `GetBodyText(Encoding := "UTF-8")`
 从`Req.BodyBuf`中以指定编码提取文本。
 - **参数**
@@ -55,7 +55,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
     - `String`: 文本
 
 # 响应 Response
-## 可用 Response 属性
+## 可用 Res 属性
 | 属性     | 描述                 | 类型          | 默认值                                                           |
 | -------- | -------------------- | ------------- | ---------------------------------------------------------------- |
 | Response | 最终生成的HTTP响应   | String        |                                                                  |
@@ -66,7 +66,7 @@ A crude, rough and makeshift AHKv2 HTTP server.
 | Body     | 响应体               | String/Buffer | 类型取决于响应体内容，默认为字符串。                             |
 | Encoding | 响应类的默认文本编码 | String        | UTF-8                                                            |
 
-## 可用 Response 方法
+## 可用 Res 方法
 ### `SetBodyText(Str, Encoding := "")`
 将文本设置为响应体，包含响应头`Content-Length`、`Content-Type`的设置。无返回值。
 - **参数**
@@ -89,9 +89,9 @@ A crude, rough and makeshift AHKv2 HTTP server.
     - `Code` (**Int**, 可选): 状态码，默认为302。
 # HttpServer 类
 ## 可用属性
-- `Web`: 是否在访问路径无对应路由函数时，尝试解析为`Web`请求。  
+- `Web`: `bool`类型，是否在访问路径无对应路由函数时，尝试解析为`Web`请求。  
     为真，尝试返回本地文件。 为假，则返回`404`错误。
-- `onFunc`：存储回调函数，不区分大小写。
+- `onFunc`：`Map`类型，存储回调函数，不区分大小写。
     可用的值有`isIPAllow`、`PreHandleReq`、`PreSendRes`详见回调函数章节。
 ## 可用方法
 ### `LoadMimeType(FilePath)`
@@ -155,3 +155,5 @@ ahk.localhost {
  - [ ] ~~向请求类传入响应类实例，发生错误时由请求类直接操作响应类，省去在函数调用间传递错误码。~~
 ### 优化方向
 响应头默认初始设置`Content-Type`，能省下大概3个if语句。
+### 代码规范
+需要用户自行编写的逻辑，应该尽量做到仅需要用户，定义函数、赋值到特定位置、传递返回值。
