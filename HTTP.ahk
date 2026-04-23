@@ -138,7 +138,7 @@ class Request {
             Call: (this, Encoding := this.Encoding) => (this.GetBodyText(Encoding))
         })
     }
-    Encoding := "UTF-8"
+    Encoding := "utf-8"
     ;@region 2.Parse
     ; 解析请求消息,一大坨代码.
     Parse(ReqMsg) {
@@ -256,7 +256,7 @@ class Response {
         this.Headers := Map()   ; 响应头
         this.Body := "" ; 响应体
     }
-    Encoding := "UTF-8"
+    Encoding := "utf-8"
     ;@region 2.BuildLine
     ; 构建响应行
     BuildLine() {
