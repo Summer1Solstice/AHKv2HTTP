@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/04/20
- * @version 3.3.0
+ * @date 2026/04/25
+ * @version 3.3.2
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -319,10 +319,11 @@ class Response {
         BuffObj := FileRead(FilePath, "Raw")
         this.Headers["Content-Length"] := BuffObj.size
         SplitPath(FilePath, , , &ext)
-        Http.MimeType.Has(ext)
-            ? this.Headers["Content-Type"] := Http.MimeType[ext]
-            : this.Headers["Content-Type"] := Encoding
-                ? "text/plain; charset=" Encoding : "text/plain"
+        CT := Http.MimeType.Has(ext) ? Http.MimeType[ext] : "text/plain"
+        if InStr(CT, "text/") {
+            CT .= Encoding ? "; charset=" Encoding : ""
+        }
+        this.Headers["Content-Type"] := CT
         this.Body := BuffObj
     }
     ;@region 2.SetErrorRes
