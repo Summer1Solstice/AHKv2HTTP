@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/04/25
- * @version 3.3.2
+ * @date 2026/04/26
+ * @version 3.3.3
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -127,6 +127,7 @@ class Request {
         this.Url := ""  ; 请求URL
         this.Protocol := "HTTP/1.1" ; 请求协议
         this.Headers := Map()   ; 请求头
+        this.Headers.CaseSense := false
         this.BodyBuf := Buffer()  ; 请求体缓冲对象
         this.GetArgs := Map()  ; GET请求参数
         this.Block := [] ; 分块列表
@@ -254,6 +255,7 @@ class Response {
         this.sCode := 200   ; 响应状态码
         this.sMsg := "OK"   ; 响应状态信息
         this.Headers := Map()   ; 响应头
+        this.Headers.CaseSense := false
         this.Body := "" ; 响应体
     }
     Encoding := "utf-8"

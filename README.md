@@ -1,8 +1,7 @@
 # AHKv2HTTP
 适用于AutoHotkey v2的HTTP服务器。  
-**警告**：这个脚本从设计到实现，都很简单。  
-可能存在一些意料之中和意料之外的问题，但只要还能满足基本需求，就不会进一步改进。  
-如果需要简单的HTTPserver建议尝试Python的http.server  
+**警告**  
+脚本尽可能实现 HTTP 协议的规范要求，因没有发现那里有问题和技术能力不足等原因，在部分细节上可能存在问题。  
 # 注意事项
 1. 脚本基于[thqby的Socket](https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk)
 2. 同时最好只有一个连接，没有针对多连接的处理。
