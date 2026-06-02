@@ -1,12 +1,10 @@
 #Requires AutoHotkey v2.0
 Persistent
 #Include HTTP.ahk
-; #Include <XZ\GetFileHash>
 path := Map()
 path["/"] := root
 path["/logo"] := logo
 path["/hello"] := HelloWorld
-; path["/hash"] := hash
 path["/echo"] := echo
 
 Server := HttpServer(10000)
@@ -28,7 +26,7 @@ IPAudit(ip) {
         }
     }
 }
-Server.onFunc["PreHandleReq"] := (req, res) => (OutputDebug(req.Headers.Get("X-Real-Ip", 0)), 1)
+Server.onFunc["PreHandleReq"] := (req, res) => (OutputDebug(req.Headers.Get("X-Real-Ip", 0) "`n"), 1)
 Server.onFunc["PreSendRes"] := (*) => (1)
 root(req, res) {
     ; MsgBox "Hello World!"
@@ -47,6 +45,8 @@ logo(req, res) {
 echo(req, res) {
     res.SetBodyText(req.Request)
 }
+; #Include <XZ\GetFileHash>
+; Server.Path["/hash"] := hash
 ; hash(req, res) {
 ;     try FileDelete "hash"
 ;     FileAppend(req.Body, "hash", "Raw")
