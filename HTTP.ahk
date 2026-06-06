@@ -234,7 +234,15 @@ class Request {
     ;@region 2.ParseHeaders
     ; 解析请求头
     ParseHeaders(Headers) {
-        HeadersList := StrSplit(Headers, ["`r`n", ": "])
+        HeadersList := []
+        loop parse Headers, "`n", "`r" {
+            if not Pos := InStr(A_LoopField, ":") {
+                Log.Error(REQUEST_HEADER_ERROR)
+                return 400
+            }
+            HeadersList.Push(SubStr(A_LoopField, 1, Pos - 1))
+            HeadersList.Push(LTrim(SubStr(A_LoopField, Pos + 1), A_Space))
+        }
         ; 检查请求头格式是否正确（键值对应该成对出现）
         if HeadersList.Length & 1 {
             Log.Error(REQUEST_HEADER_ERROR)
