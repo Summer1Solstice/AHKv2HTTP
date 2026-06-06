@@ -112,14 +112,15 @@
 - **返回**
     - 返回`true`表示允许访问，返回`false`表示拒绝访问。
 ### `PreHandleReq(req, res)`、 `PreSendRes(req, res)`
-在解析请求前、返送响应前，执行的回调函数。
+- `PreHandleReq(req, res)`：在请求解析完成后，处理请求前。
+- `PreSendRes(req, res)`：在返送响应前执行。
 - **传入**
     - `req` (**class**): 请求类的实例对象。
     - `res` (**class**): 响应类的实例对象。
 - **返回**
     - 返回`true`继续向下执行，返回`false`则拒绝访问。
 ## 对响应的预设方法
-`DefResLine`、`DefResHeader`、`DefResBody`，单个方法包含了对响应的预设。
+`DefResLine`、`DefResHeader`、`DefResBody`，单个方法包含了对响应的预设。  
 需要通过派生类进行方法重写来覆盖`HttpServer`类对响应的预设行为。
 ### `DefResHeader` 预设响应头
  - Content-Location: 请求的URL
@@ -146,14 +147,8 @@ ahk.localhost {
 > 302重定向应用占用`80/443`端口，可将其设置为监听`127.0.0.2`。caddy设置为监听具体IP而非`0.0.0.0`。
 # 其他
 ### TODO
- - [x] 细化日志
- - [x] 优化`HTTP.log`  
- - [x] 优化`ParseRequest`的If结构。  
- - [x] 尝试优化请求体过长（极限大概是几KB）截断的问题，现有的处理逻辑会导致字符的字节丢失。  
- - [x] 将`MimeType`、`ErrorResMsg`移至`http`类
- - [x] `setbody`、`getbody`的方法移至相应类
- - [x] 重写请求类的body为动态属性
- - [ ] ~~向请求类传入响应类实例，发生错误时由请求类直接操作响应类，省去在函数调用间传递错误码。~~
+ - [ ] 细化日志，详细错误原因，记录引发错误的数据。
+
 ### 优化方向
 响应头默认初始设置`Content-Type`，能省下大概3个if语句。
 ### 代码规范
