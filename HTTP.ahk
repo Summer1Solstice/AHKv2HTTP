@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
  * @date 2026/06/08
- * @version 3.3.6
+ * @version 3.3.7
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -214,18 +214,20 @@ class Request {
         this.Protocol := LineList[3]
         ; 检查URL中是否有查询参数
         if not Pos := InStr(this.Url, "?") {
-            this.GetArgs := Map()
+            this.Url := Http.UrlUnescape(this.Url)
             return 0
         }
         ; 解析GET请求参数
-        GetArgs := HTTP.UrlUnescape(SubStr(this.Url, pos + 1))
-        ArgsList := StrSplit(GetArgs, ["&", "="])
+        ArgsList := StrSplit(SubStr(this.Url, pos + 1), ["&", "="])
         ; 检查参数格式是否正确（键值对应该成对出现）
         if ArgsList.Length & 1 {
             Log.Error(QUERY_PARAMETER_ERROR)
             return 400
         }
-        this.Url := SubStr(this.Url, 1, pos - 1)
+        this.Url := Http.UrlUnescape(SubStr(this.Url, 1, pos - 1))
+        for i in ArgsList {
+            ArgsList[A_Index] := Http.UrlUnescape(i)
+        }
         this.GetArgs := Map(ArgsList*)
         return 0
     }
@@ -468,7 +470,7 @@ class HttpServer extends Socket.Server {
     ;@region 2.DefResHeader
     ; 设置默认响应头
     DefResHeader() {
-        this.Res.Headers["Content-Location"] := this.Req.Url
+        this.Res.Headers["Content-Location"] := Http.UrlEncode(this.Req.Url)
         this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
         this.Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
         ; if this.Req.Method = "OPTIONS" {
