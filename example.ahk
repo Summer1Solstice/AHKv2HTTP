@@ -4,7 +4,7 @@ Persistent
 path := Map()
 path["/"] := root
 path["/logo"] := logo
-path["/hello"] := HelloWorld
+path["/hi"] := HelloWorld
 path["/echo"] := echo
 
 Server := HttpServer(10000)
@@ -26,17 +26,16 @@ IPAudit(ip) {
         }
     }
 }
-Server.onFunc["PreHandleReq"] := (req, res) => (OutputDebug(req.Headers.Get("X-Real-Ip", 0) "`n"), 1)
+Server.onFunc["PreHandleReq"] := (req, res) => (OutputDebug(req.Headers.Get("X-Real-Ip", "")), 1)
 Server.onFunc["PreSendRes"] := (*) => (1)
 root(req, res) {
-    ; MsgBox "Hello World!"
     res.Body := "Hello World!(TestVersion)"
 }
 HelloWorld(req, res) {
-    if Server.web {
+    if Server.web and InStr(req.Headers.Get("User-Agent", 0), "Chrome") {
         res.SetBodyFile(".\index.html")
     } else {
-        res.SetBodyText("Hello World!")
+        res.SetBodyText("Hello World!(TestVersion)")
     }
 }
 logo(req, res) {
@@ -48,7 +47,6 @@ echo(req, res) {
 ; #Include <XZ\GetFileHash>
 ; Server.Path["/hash"] := hash
 ; hash(req, res) {
-;     try FileDelete "hash"
 ;     FileAppend(req.Body, "hash", "Raw")
 ;     OutputDebug req.Headers["hash"] "`n"
 ;     OutputDebug md5sum("hash") "`n"
@@ -57,4 +55,6 @@ echo(req, res) {
 ;     } else {
 ;         OutputDebug "No"
 ;     }
+;     FileDelete "hash"
+;     req.__New()
 ; }

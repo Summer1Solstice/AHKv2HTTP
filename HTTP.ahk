@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/06/06
- * @version 3.3.5
+ * @date 2026/06/08
+ * @version 3.3.6
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -155,11 +155,9 @@ class Request {
             ; 合并所有分块数据为完整请求体
             this.BodyBuf := Buffer(this.BlockSize)
             Size := 0
-            loop this.Block.Length {
-                Data := this.Block.Pop()
-                Size += Data.size
-                Pos := this.BodyBuf.ptr + this.BodyBuf.size - Size
-                DllCall("RtlCopyMemory", "Ptr", Pos, "Ptr", Data.ptr, "UInt", Data.size)
+            for i in this.Block {
+                DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + Size, "Ptr", i.ptr, "UInt", i.size)
+                Size += i.size
             }
             ; 验证合并后的数据大小是否正确
             if Size = this.Headers.Get("Content-Length", 0) {
@@ -167,7 +165,7 @@ class Request {
                 this.BlockSize := 0
                 return 0
             }
-            Log.Error(Block_MERGE_FAILED)
+            Log.Error(Block_MERGE_FAILED " " this.Headers.Get("Content-Length", 0) - Size)
             return 500
         }
         ;@region 3.line&head
