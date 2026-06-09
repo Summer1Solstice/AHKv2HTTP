@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/06/08
- * @version 3.3.7
+ * @date 2026/06/09
+ * @version 3.3.9
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -130,8 +130,8 @@ class Request {
         this.Headers.CaseSense := false
         this.BodyBuf := Buffer()  ; 请求体缓冲对象
         this.GetArgs := Map()  ; GET请求参数
-        this.IP := ""
-        this.DBSize := 0
+        this.IP := ""   ; 连接端IP
+        this.DBSize := 0    ; 数据分块大小
         this.DefineProp("Body", {
             Get: (this) => (this.BodyBuf),
             Set: (this, Value) => (this.BodyBuf := (Value is Buffer) ? Value : Buffer()),
@@ -142,20 +142,18 @@ class Request {
     ;@region 2.Parse
     ; 解析请求消息,一大坨代码.
     Parse(ReqMsg) {
-        ; 如果存在分块数据，则继续接收分块数据
-        if this.DBSize < this.Headers.Get("Content-Length", 0) {
-            DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + this.DBSize, "Ptr", ReqMsg.ptr, "UInt", ReqMsg.size)
-            this.DBSize += ReqMsg.size
+        ; 如果数据未接收完，继续接收
+        if this.DBSize > 0 {
+            offset := this.BodyBuf.size - this.DBSize
+            ; 合并到
+            DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + offset, "Ptr", ReqMsg.ptr, "UInt", ReqMsg.size)
+            this.DBSize -= ReqMsg.size
             ; 检查是否已接收完整的请求体
-            if this.DBSize != this.Headers.Get("Content-Length", 0) {
+            if this.DBSize != 0 {
                 return
-            }
-            ; 验证合并后的数据大小是否正确
-            if this.DBSize = this.Headers.Get("Content-Length", 0) {
+            } else {
                 return 0
             }
-            Log.Error(Block_MERGE_FAILED " " this.Headers.Get("Content-Length", 0) - this.DBSize)
-            return 500
         }
         ;@region 3.line&head
         msg := StrGet(ReqMsg, "utf-8")
@@ -185,9 +183,9 @@ class Request {
         ; 处理POST请求的分块传输
         if this.Method = "POST" and this.DBSize = 0 {
             if this.Headers.Get("Content-Length", 0) > body.Size {
-                this.BodyBuf := Buffer(this.Headers.Get("Content-Length", 0))
-                DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + this.DBSize, "Ptr", body.ptr, "UInt", body.size)
-                this.DBSize += body.size
+                this.BodyBuf := Buffer(this.Headers["Content-Length"])
+                DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr, "Ptr", body.ptr, "UInt", body.size)
+                this.DBSize := this.Headers["Content-Length"] - body.Size
                 return
             }
         }
@@ -464,10 +462,6 @@ class HttpServer extends Socket.Server {
         this.Res.Headers["Content-Location"] := Http.UrlEncode(this.Req.Url)
         this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
         this.Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
-        ; if this.Req.Method = "OPTIONS" {
-        ;     this.Res.Headers["Allow"] := "GET,POST,HEAD,TRACE,OPTIONS"
-        ; }
-        ; this.Res.Headers["Connection"] := "close" ; 关闭长连接
     }
     ;@region 2.DefResBody
     ; 设置默认响应体
