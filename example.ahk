@@ -49,11 +49,12 @@ echo(req, res) {
 ; hash(req, res) {
 ;     FileAppend(req.Body, "hash", "Raw")
 ;     OutputDebug req.Headers["hash"] "`n"
-;     OutputDebug md5sum("hash") "`n"
-;     if req.Headers["hash"] = md5sum("hash") {
-;         OutputDebug "Yes"
+;     md5 := md5sum("hash")
+;     OutputDebug md5 "`n"
+;     if req.Headers["hash"] = md5 {
+;         OutputDebug "Yes`n"
 ;     } else {
-;         OutputDebug "No"
+;         OutputDebug "No`n"
 ;     }
 ;     FileDelete "hash"
 ;     req.__New()

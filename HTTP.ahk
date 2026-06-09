@@ -130,9 +130,8 @@ class Request {
         this.Headers.CaseSense := false
         this.BodyBuf := Buffer()  ; 请求体缓冲对象
         this.GetArgs := Map()  ; GET请求参数
-        this.Block := [] ; 分块列表
-        this.BlockSize := 0
         this.IP := ""
+        this.DBSize := 0
         this.DefineProp("Body", {
             Get: (this) => (this.BodyBuf),
             Set: (this, Value) => (this.BodyBuf := (Value is Buffer) ? Value : Buffer()),
@@ -144,28 +143,18 @@ class Request {
     ; 解析请求消息,一大坨代码.
     Parse(ReqMsg) {
         ; 如果存在分块数据，则继续接收分块数据
-        if this.Block.Length {
-            this.Block.Push(ReqMsg)
-            this.BlockSize += ReqMsg.size
-            ; OutputDebug this.BlockSize " " this.Headers.Get("Content-Length", 0) "`n"
+        if this.DBSize < this.Headers.Get("Content-Length", 0) {
+            DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + this.DBSize, "Ptr", ReqMsg.ptr, "UInt", ReqMsg.size)
+            this.DBSize += ReqMsg.size
             ; 检查是否已接收完整的请求体
-            if this.BlockSize != this.Headers.Get("Content-Length", 0) {
+            if this.DBSize != this.Headers.Get("Content-Length", 0) {
                 return
             }
-            ; 合并所有分块数据为完整请求体
-            this.BodyBuf := Buffer(this.BlockSize)
-            Size := 0
-            for i in this.Block {
-                DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + Size, "Ptr", i.ptr, "UInt", i.size)
-                Size += i.size
-            }
             ; 验证合并后的数据大小是否正确
-            if Size = this.Headers.Get("Content-Length", 0) {
-                this.Block := []
-                this.BlockSize := 0
+            if this.DBSize = this.Headers.Get("Content-Length", 0) {
                 return 0
             }
-            Log.Error(Block_MERGE_FAILED " " this.Headers.Get("Content-Length", 0) - Size)
+            Log.Error(Block_MERGE_FAILED " " this.Headers.Get("Content-Length", 0) - this.DBSize)
             return 500
         }
         ;@region 3.line&head
@@ -194,10 +183,11 @@ class Request {
         body := Buffer(ReqMsg.size - BodyStartPos)
         DllCall("RtlCopyMemory", "Ptr", body, "Ptr", ReqMsg.ptr + BodyStartPos, "UInt", body.Size)
         ; 处理POST请求的分块传输
-        if this.Method = "POST" and this.Block.Length = 0 {
+        if this.Method = "POST" and this.DBSize = 0 {
             if this.Headers.Get("Content-Length", 0) > body.Size {
-                this.Block.Push(body)
-                this.BlockSize += body.size
+                this.BodyBuf := Buffer(this.Headers.Get("Content-Length", 0))
+                DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + this.DBSize, "Ptr", body.ptr, "UInt", body.size)
+                this.DBSize += body.size
                 return
             }
         }
@@ -209,7 +199,7 @@ class Request {
     ; 解析请求行
     ParseLine(Line) {
         LineList := StrSplit(Line, A_Space)
-        this.Method := LineList[1]
+        this.Method := StrUpper(LineList[1])
         this.Url := LineList[2]
         this.Protocol := LineList[3]
         ; 检查URL中是否有查询参数
@@ -377,6 +367,7 @@ class HttpServer extends Socket.Server {
         this.client.onClose := onclose
         onclose(Socket, err) {
             this.Req.__New()
+            this.Res.__New()
         }
     }
     ;@region 2.Main
