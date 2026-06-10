@@ -1,12 +1,12 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
  * @date 2026/06/10
- * @version 3.4.0
+ * @version 3.4.1
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
 ;@region 1.LogMsgText
-BLOCK_MERGE_FAILED := "块合并失败"
+BLOCK_MERGE_FAILED := "数据块超出应有大小"
 NOT_A_STANDARD_HTTP_REQUEST := "不是标准的HTTP请求"
 QUERY_PARAMETER_ERROR := "查询参数错误"
 REQUEST_HEADER_ERROR := "请求头错误"
@@ -154,6 +154,8 @@ class Request {
             } else if this.DBSize = 0 {
                 return 0
             } else {
+                this.DBSize := 0
+                Log.Error(BLOCK_MERGE_FAILED)
                 return -1
             }
         }
@@ -238,6 +240,7 @@ class Request {
             Log.Error(REQUEST_HEADER_ERROR)
             return 400
         }
+        this.Headers.Clear()
         this.Headers.Set(HeadersList*)
         return 0
     }
@@ -364,7 +367,7 @@ class HttpServer extends Socket.Server {
                 this.Main(Socket)
             }
         }
-        this.client.onClose := this.Clear
+        this.client.onClose := onclose(Socket, err) => this.Clear()
     }
     ;@region 2.Main
     Main(Socket) {
@@ -463,6 +466,9 @@ class HttpServer extends Socket.Server {
         this.Res.Headers["Content-Location"] := Http.UrlEncode(this.Req.Url)
         this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
         this.Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
+        if this.Req.Headers.Get("Connection", 0) = "close" {
+            this.Res.Headers["Connection"] := "close"
+        }
     }
     ;@region 2.DefResBody
     ; 设置默认响应体
@@ -497,7 +503,7 @@ class HttpServer extends Socket.Server {
         this.Path := Paths
     }
     ;@region 2.Clear
-    Clear(*) {
+    Clear() {
         this.Req.__New()
         this.Res.__New()
     }
