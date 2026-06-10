@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/06/09
- * @version 3.3.9
+ * @date 2026/06/10
+ * @version 3.4.0
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -149,10 +149,12 @@ class Request {
             DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + offset, "Ptr", ReqMsg.ptr, "UInt", ReqMsg.size)
             this.DBSize -= ReqMsg.size
             ; 检查是否已接收完整的请求体
-            if this.DBSize != 0 {
+            if this.DBSize > 0 {
                 return
-            } else {
+            } else if this.DBSize = 0 {
                 return 0
+            } else {
+                return -1
             }
         }
         ;@region 3.line&head
@@ -236,7 +238,7 @@ class Request {
             Log.Error(REQUEST_HEADER_ERROR)
             return 400
         }
-        this.Headers := Map(HeadersList*)
+        this.Headers.Set(HeadersList*)
         return 0
     }
     ;@region 2.GetBodyText
@@ -274,7 +276,7 @@ class Response {
         }
         ResHeaders := ""
         for k, v in this.Headers {
-            ResHeaders .= Format("{1}: {2}`r`n", k, v)
+            ResHeaders .= Format("{1}: {2}`r`n", StrReplace(StrTitle(StrReplace(k, "-", " ")), " ", "-"), v)
         }
         return ResHeaders
     }
@@ -362,25 +364,24 @@ class HttpServer extends Socket.Server {
                 this.Main(Socket)
             }
         }
-        this.client.onClose := onclose
-        onclose(Socket, err) {
-            this.Req.__New()
-            this.Res.__New()
-        }
+        this.client.onClose := this.Clear
     }
     ;@region 2.Main
     Main(Socket) {
         ; 解析HTTP请求
         Code := this.Req.Parse(Socket.Recv())
         ; 根据解析结果处理请求
-        if Code = 0 {
-            this.Res.__New()
-        } else if Code = "" {
-            return
-        } else {
-            this.Res.SetErrorRes(Code)
-            this.SendResponse(Socket)   ; 发送响应
-            return Code
+        switch Code {
+            case 0: this.Res.__New()
+            case "": return
+            case -1:
+                Socket.__Delete()
+                return
+            default:
+                this.Res.SetErrorRes(Code)
+                this.SendResponse(Socket)   ; 发送响应
+                return Code
+
         }
         if this.onFunc.Has("PreHandleReq") and not this.onFunc["PreHandleReq"](this.Req, this.Res) {
             return Socket.__Delete()
@@ -494,6 +495,11 @@ class HttpServer extends Socket.Server {
             }
         }
         this.Path := Paths
+    }
+    ;@region 2.Clear
+    Clear(*) {
+        this.Req.__New()
+        this.Res.__New()
     }
     ;@region 2.DeBug
     DeBug() {
