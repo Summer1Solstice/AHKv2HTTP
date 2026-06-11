@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/06/10
- * @version 3.4.1
+ * @date 2026/06/11
+ * @version 3.4.2
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -144,6 +144,11 @@ class Request {
     Parse(ReqMsg) {
         ; 如果数据未接收完，继续接收
         if this.DBSize > 0 {
+            if this.DBSize < ReqMsg.size {
+                this.__New()
+                Log.Error(BLOCK_MERGE_FAILED)
+                return -1
+            }
             offset := this.BodyBuf.size - this.DBSize
             ; 合并到
             DllCall("RtlCopyMemory", "Ptr", this.BodyBuf.ptr + offset, "Ptr", ReqMsg.ptr, "UInt", ReqMsg.size)
@@ -153,10 +158,6 @@ class Request {
                 return
             } else if this.DBSize = 0 {
                 return 0
-            } else {
-                this.DBSize := 0
-                Log.Error(BLOCK_MERGE_FAILED)
-                return -1
             }
         }
         ;@region 3.line&head
@@ -454,6 +455,7 @@ class HttpServer extends Socket.Server {
         if this.Req.Headers.Get("Connection", 0) = "close" {
             Socket.__Delete()
         }
+        this.Clear()
     }
     ;@region 1.DefResLine
     ; 设置默认响应行
