@@ -44,18 +44,17 @@ logo(req, res) {
 echo(req, res) {
     res.SetBodyText(req.Request)
 }
-#Include <XZ\GetFileHash>
+#Include <XZ\GetHash>
 Server.Path["/hash"] := hash
 hash(req, res) {
-    FileAppend(req.Body, "hash", "Raw")
     OutputDebug req.Headers["hash"] "`n"
-    md5 := md5sum("hash")
+    md5 := md5sum(req.Body)
     OutputDebug md5 "`n"
     if req.Headers["hash"] = md5 {
         OutputDebug "Yes`n"
+        res.SetBodyText("Yes")
     } else {
         OutputDebug "No`n"
+        res.SetBodyText("No")
     }
-    FileDelete "hash"
-    req.__New()
 }

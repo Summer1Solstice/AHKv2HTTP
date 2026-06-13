@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/06/11
- * @version 3.4.2
+ * @date 2026/06/13
+ * @version 3.5.0
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -347,64 +347,66 @@ class Response {
 ;@region 1.HttpServer
 class HttpServer extends Socket.Server {
     Path := Map()   ; 路由表
-    Req := Request()    ; 请求类
-    Res := Response()   ; 响应类
     Web := false    ; 是否开启web功能
     onFunc := Map()
     onFunc.CaseSense := false
     ;@region 2.onACCEPT
-    onACCEPT(err) {
-        this.client := this.AcceptAsClient()
-        this.client.onREAD := onread
-        onread(Socket, err) {
-            if Socket.MsgSize() {
+    onAccept(err) {
+        onread(Sk, err) {
+            static IP := 0
+            if Sk.MsgSize() {
                 ; IP访问控制检查
-                this.Req.IP := SubStr(Socket.addr, 1, InStr(Socket.addr, ":") - 1)
-                if this.onFunc.Has("isIPAllow") and not this.onFunc["isIPAllow"](this.Req.IP) {
-                    Log.Warn(Format(REQUEST_DENIED_FROM_, Socket.addr), "")
-                    Socket.__Delete()
-                    return
+                Sk.Req.IP := SubStr(Sk.addr, 1, InStr(Sk.addr, ":") - 1)
+                if Sk.Req.IP != IP {
+                    if this.onFunc.Has("isIPAllow") and not this.onFunc["isIPAllow"](Sk.Req.IP) {
+                        Log.Warn(Format(REQUEST_DENIED_FROM_, Sk.addr), "")
+                        return this.unlink(Sk)
+                    }
                 }
-                this.Main(Socket)
+                IP := Sk.Req.IP
+                this.Main(Sk)
             }
         }
-        this.client.onClose := onclose(Socket, err) => this.Clear()
+        client := this.AcceptAsClient()
+        client.Req := Request()
+        client.Res := Response()
+        client.onREAD := onread
+        client.onClose := (Sk, err) => (this.Clear(Sk), ObjRelease(ObjPtr(Sk)))
+        ObjAddRef(ObjPtr(client))
     }
     ;@region 2.Main
-    Main(Socket) {
+    Main(Sk) {
         ; 解析HTTP请求
-        Code := this.Req.Parse(Socket.Recv())
+        Code := Sk.Req.Parse(Sk.Recv())
         ; 根据解析结果处理请求
         switch Code {
-            case 0: this.Res.__New()
+            case 0: Sk.Res.__New()
             case "": return
             case -1:
-                Socket.__Delete()
-                return
+                return this.unlink(Sk)
             default:
-                this.Res.SetErrorRes(Code)
-                this.SendResponse(Socket)   ; 发送响应
+                Sk.Res.SetErrorRes(Code)
+                this.SendResponse(Sk)   ; 发送响应
                 return Code
-
         }
-        if this.onFunc.Has("PreHandleReq") and not this.onFunc["PreHandleReq"](this.Req, this.Res) {
-            return Socket.__Delete()
+        if this.onFunc.Has("PreHandleReq") and not this.onFunc["PreHandleReq"](Sk.Req, Sk.Res) {
+            return this.unlink(Sk)
         }
         ; 处理业务逻辑
-        if Code := this.HandleRequest() {  ; 处理请求
-            this.Res.SetErrorRes(Code)
-            this.SendResponse(Socket)
+        if Code := this.HandleRequest(Sk) {  ; 处理请求
+            Sk.Res.SetErrorRes(Code)
+            this.SendResponse(Sk)
             return Code
         }
-        return this.SendResponse(Socket)
+        return this.SendResponse(Sk)
     }
     ;@region 2.HandleRequest
     ; 处理请求
-    HandleRequest() {
+    HandleRequest(Sk) {
         ; 尝试处理API调用请求
-        if not Code := this.HandleAPIRequest() {
+        if not Code := this.HandleAPIRequest(Sk) {
             return 0
-        } else if this.Web and not Code := this.HandleWebRequest() { ; 如果启用Web功能，尝试处理Web请求
+        } else if this.Web and not Code := this.HandleWebRequest(Sk) { ; 如果启用Web功能，尝试处理Web请求
             return 0
         } else {
             return Code
@@ -412,72 +414,72 @@ class HttpServer extends Socket.Server {
     }
     ;@region 2.HandleAPIRequest
     ; 处理调用请求
-    HandleAPIRequest() {
+    HandleAPIRequest(Sk) {
         ; 检查路由表中是否存在该URL路径
-        if not this.Path.Has(this.Req.Url) {    ; 路由表中没有此路径，返回
+        if not this.Path.Has(Sk.Req.Url) {    ; 路由表中没有此路径，返回
             return 404
         }
-        this.Path[this.Req.Url](this.Req, this.Res) ; 执行请求
+        this.Path[Sk.Req.Url](Sk.Req, Sk.Res) ; 执行请求
         return 0
     }
     ;@region 2.HandleWebRequest
     ; 处理Web请求
-    HandleWebRequest() {
+    HandleWebRequest(Sk) {
         ; Web访问IP控制检查
-        Path := Http.NormalizePath(A_ScriptDir . this.Req.Url)
+        Path := Http.NormalizePath(A_ScriptDir . Sk.Req.Url)
         ; 检查文件是否存在且有对应的MIME类型
         if not FileExist(Path) {
             return 404
         }
-        this.Res.SetBodyFile(Path)
+        Sk.Res.SetBodyFile(Path)
         return 0
     }
     ;@region 2.SendResponse
     ; 返回响应
-    SendResponse(Socket) {
-        this.DefResLine()    ; 设置响应行
-        this.DefResHeader()    ; 设置响应头
-        this.DefResBody()    ; 设置响应体
-        if this.onFunc.Has("PreSendRes") and not this.onFunc["PreSendRes"](this.Req, this.Res) {
-            return Socket.__Delete()
+    SendResponse(Sk) {
+        this.DefResLine(Sk)    ; 设置响应行
+        this.DefResHeader(Sk)    ; 设置响应头
+        this.DefResBody(Sk)    ; 设置响应体
+        if this.onFunc.Has("PreSendRes") and not this.onFunc["PreSendRes"](Sk.Req, Sk.Res) {
+            return this.unlink(Sk)
         }
         ; 根据body类型发送响应
-        if Type(this.Res.Body) = "Buffer" {
-            Socket.SendText(this.Res.BuildResponse())
-            Socket.Send(this.Res.Body)
+        if Type(Sk.Res.Body) = "Buffer" {
+            Sk.SendText(Sk.Res.BuildResponse())
+            Sk.Send(Sk.Res.Body)
         } else {
-            Socket.SendText(this.Res.BuildResponse())
+            Sk.SendText(Sk.Res.BuildResponse())
         }
         ; 调试输出
-        if this.Req.Url = "/debug" or this.Req.Method = "TRACE" {
-            this.DeBug()
+        if Sk.Req.Url = "/debug" or Sk.Req.Method = "TRACE" {
+            this.DeBug(Sk)
         }
-        if this.Req.Headers.Get("Connection", 0) = "close" {
-            Socket.__Delete()
+        if Sk.Req.Headers.Get("Connection", 0) = "close" {
+            this.unlink(Sk)
         }
-        this.Clear()
+        this.Clear(Sk)
     }
     ;@region 1.DefResLine
     ; 设置默认响应行
-    DefResLine() {
+    DefResLine(Sk) {
         return
     }
     ;@region 2.DefResHeader
     ; 设置默认响应头
-    DefResHeader() {
-        this.Res.Headers["Content-Location"] := Http.UrlEncode(this.Req.Url)
-        this.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
-        this.Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
-        if this.Req.Headers.Get("Connection", 0) = "close" {
-            this.Res.Headers["Connection"] := "close"
+    DefResHeader(Sk) {
+        Sk.Res.Headers["Content-Location"] := Http.UrlEncode(Sk.Req.Url)
+        Sk.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
+        Sk.Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
+        if Sk.Req.Headers.Get("Connection", 0) = "close" {
+            Sk.Res.Headers["Connection"] := "close"
         }
     }
     ;@region 2.DefResBody
     ; 设置默认响应体
-    DefResBody() {
-        switch this.Req.Method {
-            case "HEAD": this.Res.Body := ""
-            case "TRACE": this.Res.SetBodyText(this.Req.Request)
+    DefResBody(Sk) {
+        switch Sk.Req.Method {
+            case "HEAD": Sk.Res.Body := ""
+            case "TRACE": Sk.Res.SetBodyText(Sk.Req.Request)
         }
     }
     ;@region 2.LoadMimeType
@@ -505,15 +507,20 @@ class HttpServer extends Socket.Server {
         this.Path := Paths
     }
     ;@region 2.Clear
-    Clear() {
-        this.Req.__New()
-        this.Res.__New()
+    Clear(Sk) {
+        Sk.Req.__New()
+        Sk.Res.__New()
+    }
+    ;@region 2.break
+    unlink(Sk) {
+        ObjRelease(ObjPtr(Sk))
+        Sk.__Delete()
     }
     ;@region 2.DeBug
-    DeBug() {
-        OutputDebug this.Req.Request
+    DeBug(Sk) {
+        OutputDebug Sk.Req.Request
         OutputDebug "`n----------------------------------`n"
-        OutputDebug this.Res.Response
+        OutputDebug Sk.Res.Response
         OutputDebug "`n=====================================================================`n"
     }
 }
