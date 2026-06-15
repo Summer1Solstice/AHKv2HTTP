@@ -1,19 +1,32 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/06/13
- * @version 3.5.0
+ * @date 2026/06/14
+ * @version 3.5.2
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
 ;@region 1.LogMsgText
+; 数据块超出应有大小
 BLOCK_MERGE_FAILED := "数据块超出应有大小"
+; 不是标准的HTTP请求
 NOT_A_STANDARD_HTTP_REQUEST := "不是标准的HTTP请求"
+; 查询参数错误
 QUERY_PARAMETER_ERROR := "查询参数错误"
+; 请求头错误
 REQUEST_HEADER_ERROR := "请求头错误"
-FILE_NOT_FOUND_OR_PATH_ERROR := "文件不存在或路径错误"
+; 请求头格式错误（缺少冒号分隔符）
+REQUEST_HEADER_FORMAT_ERROR := "请求头格式错误"
+; 请求头键值对不成对
+REQUEST_HEADER_PAIR_ERROR := "请求头键值对不成对"
+; 文件或路径不存在错误
+FILE_NOT_FOUND_OR_PATH_ERROR := "文件或路径不存在错误"
+; 传入的变量类型错误，需要传入 {1}
 NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_ := "传入的变量类型错误，需要传入 {1}"
+; [HttpServer] 已拒绝来自 {1} 的请求
 REQUEST_DENIED_FROM_ := "[HttpServer] 已拒绝来自 {1} 的请求"
+; 路由函数类型错误，期望是 Func，实际传入{1}
 PATH_FUNCTION_TYPE_ERROR := "路由函数类型错误，期望是 Func，实际传入{1}"
+; 路由函数至少需要两个参数，第一个参数为请求对象，第二个参数为响应对象
 FUNCTION_AT_LEAST_TWO_PARAMETERS := "路由函数至少需要两个参数，第一个参数为请求对象，第二个参数为响应对象"
 ;@region 1.log
 class Log {
@@ -28,8 +41,11 @@ class Log {
         Time := FormatTime(, "HH:mm:ss")
         Text := Fn ? Format("[{1}] {2}", Fn, Text) : Text
         Log := Format("{1} {2:-5} - {3}`n", Time, logLevel, Text)
-        global A_DebuggerName
-        IsSet(A_DebuggerName) ? OutputDebug(Log) : ""
+        try {
+            FileAppend(Log, "*")
+        } catch {
+            OutputDebug(Log)
+        }
         FileAppend(Log, "logs\" Date ".log", "utf-8")
     }
     ; 调试
@@ -230,7 +246,7 @@ class Request {
         HeadersList := []
         loop parse Headers, "`n", "`r" {
             if not Pos := InStr(A_LoopField, ":") {
-                Log.Error(REQUEST_HEADER_ERROR)
+                Log.Error(REQUEST_HEADER_FORMAT_ERROR)
                 return 400
             }
             HeadersList.Push(SubStr(A_LoopField, 1, Pos - 1))
@@ -238,7 +254,7 @@ class Request {
         }
         ; 检查请求头格式是否正确（键值对应该成对出现）
         if HeadersList.Length & 1 {
-            Log.Error(REQUEST_HEADER_ERROR)
+            Log.Error(REQUEST_HEADER_PAIR_ERROR)
             return 400
         }
         this.Headers.Clear()
@@ -346,8 +362,13 @@ class Response {
 
 ;@region 1.HttpServer
 class HttpServer extends Socket.Server {
-    Path := Map()   ; 路由表
-    Web := false    ; 是否开启web功能
+    ; 路由表
+    Path := Map()
+    ; web功能开关
+    Web := false
+    ; web功能根目录
+    Root := A_ScriptDir
+    ; 回调函数
     onFunc := Map()
     onFunc.CaseSense := false
     ;@region 2.onACCEPT
@@ -425,10 +446,14 @@ class HttpServer extends Socket.Server {
     ;@region 2.HandleWebRequest
     ; 处理Web请求
     HandleWebRequest(Sk) {
-        ; Web访问IP控制检查
-        Path := Http.NormalizePath(A_ScriptDir . Sk.Req.Url)
-        ; 检查文件是否存在且有对应的MIME类型
-        if not FileExist(Path) {
+        Path := Sk.Req.Url
+        if Path ~= "^\/\.\.[\\\/]" {
+            return 404
+        }
+        Path := Http.NormalizePath(this.Root . Path)
+        ; 检查文件是否合法
+        RASHNDOCTL := FileExist(Path)
+        if not RASHNDOCTL or InStr(RASHNDOCTL, "D") or InStr(Path, this.Root) != 1 {
             return 404
         }
         Sk.Res.SetBodyFile(Path)
@@ -494,7 +519,7 @@ class HttpServer extends Socket.Server {
     ; 设置请求路径对应的路由函数
     SetPaths(Paths) {
         if Type(Paths) != "Map" {
-            throw TypeError(Format(NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_, Type(Paths)))
+            throw TypeError(Format(NVALID_VARIABLE_TYPE_ERROR_NEED_TO_PASS_, "Map"))
         }
         for _, F in Paths {
             if not F is Func {
@@ -507,11 +532,13 @@ class HttpServer extends Socket.Server {
         this.Path := Paths
     }
     ;@region 2.Clear
+    ; 清理
     Clear(Sk) {
         Sk.Req.__New()
         Sk.Res.__New()
     }
-    ;@region 2.break
+    ;@region 2.unlink
+    ; 断开连接
     unlink(Sk) {
         ObjRelease(ObjPtr(Sk))
         Sk.__Delete()

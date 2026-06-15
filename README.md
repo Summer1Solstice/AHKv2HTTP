@@ -89,7 +89,9 @@
 ## 可用属性
 - `Web`: `bool`类型，是否在访问路径无对应路由函数时，尝试解析为`Web`请求。  
     为真，尝试返回本地文件。 为假，则返回`404`错误。
-- `onFunc`：`Map`类型，存储回调函数，不区分大小写。
+- `root`: `String`类型，静态文件目录。  
+    默认值为当前脚本所在目录。
+- `onFunc`：`Map`类型，存储回调函数，不区分大小写。  
     可用的值有`isIPAllow`、`PreHandleReq`、`PreSendRes`详见回调函数章节。
 ## 可用方法
 ### `LoadMimeType(FilePath)`
