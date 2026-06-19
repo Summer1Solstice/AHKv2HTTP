@@ -23,7 +23,7 @@
 - 当URL路径被访问时调用`paths`中相应的处理函数。  
 - 调用处理函数时，传入两个参数，请求`Request`和响应`Response`，处理函数必须有两个参数接受传入。    
 - `Request`类实例属性`BodyBuf`包含请求体，类型为`Buffer`。
-    - 通过`Body`动态属性获取，或直接调用`Body()`并传入编码来提取文本。  
+    - 通过动态属性`Body`获取，或直接调用`Body()`来提取文本，可选传入参数。  
 - 调用`Response`类实例方法`SetBodyText`发送文本，传入字符串，可选传入编码。  
 - 调用`Response`类实例方法`SetBodyFile`发送文件，传入文件路径，可选传入编码。  
 - 其他请求头、响应头等，可以直接访问传入处理函数的参数`Request`和`Response`的属性。
@@ -32,17 +32,19 @@
 [mimetype](mimetypes)
 # 请求 Request 类
 ## 可用 Req 属性
-| 属性     | 描述                 | 类型   | 默认值   |
-| -------- | -------------------- | ------ | -------- |
-| Request  | 未解析的原始请求     | String |          |
-| Method   | 请求方法             | String |          |
-| Url      | 请求URL              | String |          |
-| Protocol | HTTP协议版本         | String | HTTP/1.1 |
-| Headers  | 请求头               | Map    |          |
-| BodyBuf  | 请求体               | Buffer |          |
-| GetArgs  | 查询参数             | Map    |          |
-| IP       | 不一定是客户端的IP   | String |          |
-| Encoding | 请求类的默认文本编码 | String | UTF-8    |
+| 属性     | 描述                 | 类型     | 默认值                               |
+| -------- | -------------------- | -------- | ------------------------------------ |
+| Request  | 未解析的原始请求     | String   |                                      |
+| Method   | 请求方法             | String   |                                      |
+| Url      | 请求URL              | String   |                                      |
+| Protocol | HTTP协议版本         | String   | HTTP/1.1                             |
+| Headers  | 请求头               | Map      |                                      |
+| BodyBuf  | 请求体               | Buffer   |                                      |
+| Body     | 请求体               | 动态属性 | 对`BodyBuf`和`GetBodyText`方法的包装 |
+| GetArgs  | 查询参数             | Map      |                                      |
+| IP       | 不一定是客户端的IP   | String   |                                      |
+| Encoding | 请求类的默认文本编码 | String   | UTF-8                                |
+
 ## 可用 Req 方法
 ### `GetBodyText(Encoding := "UTF-8")`
 从`Req.BodyBuf`中以指定编码提取文本。
