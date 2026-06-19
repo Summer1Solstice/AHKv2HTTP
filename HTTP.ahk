@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/06/14
- * @version 3.5.2
+ * @date 2026/06/19
+ * @version 4.0.0
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -28,6 +28,10 @@ REQUEST_DENIED_FROM_ := "[HttpServer] 已拒绝来自 {1} 的请求"
 PATH_FUNCTION_TYPE_ERROR := "路由函数类型错误，期望是 Func，实际传入{1}"
 ; 路由函数至少需要两个参数，第一个参数为请求对象，第二个参数为响应对象
 FUNCTION_AT_LEAST_TWO_PARAMETERS := "路由函数至少需要两个参数，第一个参数为请求对象，第二个参数为响应对象"
+; 工作流返回空值
+WORKFLOW_RETURN_EMPTY := "不允许空返回"
+; 无效响应码
+INVALID_RESPONSE_CODE := "无效响应码："
 ;@region 1.log
 class Log {
     static __New() {
@@ -161,8 +165,7 @@ class Request {
     Encoding := "utf-8"
     ;@region 2.Parse
     ; 解析请求消息,一大坨代码.
-    Parse(Sk) {
-        ReqMsg := Sk.Recv()
+    Parse(ReqMsg) {
         ; 如果数据未接收完，继续接收
         if this.DBSize > 0 {
             if this.DBSize < ReqMsg.size {
@@ -362,6 +365,7 @@ class Response {
     SetErrorRes(code) {
         if not Http.ResCode.Has(code) {
             code := 500
+            Log.Error(INVALID_RESPONSE_CODE . code)
         }
         this.sCode := Http.ResCode[code].sCode
         this.sMsg := Http.ResCode[code].sMsg
@@ -401,36 +405,47 @@ class HttpServer extends Socket.Server {
         client.Req := Request()
         client.Res := Response()
         client.onREAD := onread
-        client.onClose := (Sk, err) => (ObjRelease(ObjPtr(Sk)))
+        client.onClose := (Sk, err) => (this.Clear(Sk.Req, Sk.Res), ObjRelease(ObjPtr(Sk)))
         ObjAddRef(ObjPtr(client))
     }
     ;@region 2.Main
     Main(Sk) {
-        Req := Sk.Req, Res := Sk.Res
-        Workflow := [
-            Req.Parse.Bind(Req, Sk),    ; 解析请求
-            () => (Res.__New(), 0), ; 初始化响应
-            this.onFunc.Get("PreHandleReq", (*) => (0)).Bind(Req, Res), ; 回调
-            this.HandleRequest.Bind(this, Req, Res),    ; 处理请求
-            this.DefResLine.Bind(this, Req, Res),   ; 默认响应行
-            this.DefResHeader.Bind(this, Req, Res), ; 默认响应头
-            this.DefResBody.Bind(this, Req, Res),   ; 默认响应体
-            this.onFunc.Get("PreSendRes", (*) => (0)).Bind(Req, Res),   ; 回调
-            this.SendResponse.Bind(this, Sk, Req, Res), ; 发送响应
-            this.Ending.Bind(this, Sk, Req, Res),   ; 收尾
-        ]
-        for i in Workflow {
-            switch code := i() {
-                case "": return
-                case 0: continue
-                case -1:
-                    this.unlink(Sk)
-                    return
-                default:
-                    Res.SetErrorRes(Code)
-                    this.SendResponse(Sk, Req, Res)
-                    this.Ending(Sk, Req, Res)
-                    return
+        code := Sk.Req.Parse(Sk.Recv()) ; 解析请求
+        if code = "" {  ; 请求未完
+            return
+        } else if code = 0 {   ; 解析请求成功
+            Req := Sk.Req, Res := Sk.Res
+            Workflow := [
+                () => (Res.__New(), 0), ; 初始化响应
+                this.onFunc.Get("PreHandleReq", (*) => (0)).Bind(Req, Res), ; 回调
+                this.HandleRequest.Bind(this, Req, Res),    ; 处理请求
+                this.DefResLine.Bind(this, Req, Res),   ; 默认响应行
+                this.DefResHeader.Bind(this, Req, Res), ; 默认响应头
+                this.DefResBody.Bind(this, Req, Res),   ; 默认响应体
+                this.onFunc.Get("PreSendRes", (*) => (0)).Bind(Req, Res),   ; 回调
+                this.SendResponse.Bind(this, Sk, Req, Res), ; 发送响应
+                this.Ending.Bind(this, Sk, Req, Res),   ; 收尾
+            ]
+            for i in Workflow {
+                switch code := i() {
+                    case 0: continue
+                    case "": throw WORKFLOW_RETURN_EMPTY
+                    case -1:
+                        this.unlink(Sk)
+                        return
+                    default:
+                        Res.SetErrorRes(Code)
+                        this.SendResponse(Sk, Req, Res)
+                        this.Ending(Sk, Req, Res)
+                        return
+                }
+            } else if code = -1 {   ; 断开
+                this.unlink(Sk)
+            } else {    ; 错误
+                Res.SetErrorRes(Code)
+                this.SendResponse(Sk, Req, Res)
+                this.Ending(Sk, Req, Res)
+                return
             }
         }
     }

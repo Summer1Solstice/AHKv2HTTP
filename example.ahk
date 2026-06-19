@@ -52,9 +52,9 @@ hash(req, res) {
     OutputDebug md5 "`n"
     if req.Headers["hash"] = md5 {
         OutputDebug "Yes`n"
-        res.SetBodyText("Yes")
+        res.SetBodyText("Yes`n")
     } else {
         OutputDebug "No`n"
-        res.SetBodyText("No")
+        res.SetBodyText("No`n")
     }
 }
