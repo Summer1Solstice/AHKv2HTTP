@@ -161,7 +161,8 @@ class Request {
     Encoding := "utf-8"
     ;@region 2.Parse
     ; 解析请求消息,一大坨代码.
-    Parse(ReqMsg) {
+    Parse(Sk) {
+        ReqMsg := Sk.Recv()
         ; 如果数据未接收完，继续接收
         if this.DBSize > 0 {
             if this.DBSize < ReqMsg.size {
@@ -405,37 +406,41 @@ class HttpServer extends Socket.Server {
     }
     ;@region 2.Main
     Main(Sk) {
-        ; 解析HTTP请求
-        Code := Sk.Req.Parse(Sk.Recv())
-        ; 根据解析结果处理请求
-        switch Code {
-            case 0: Sk.Res.__New()
-            case "": return
-            case -1:
-                return this.unlink(Sk)
-            default:
-                Sk.Res.SetErrorRes(Code)
-                this.SendResponse(Sk)   ; 发送响应
-                return Code
+        Req := Sk.Req, Res := Sk.Res
+        Workflow := [
+            Req.Parse.Bind(Req, Sk),    ; 解析请求
+            () => (Res.__New(), 0), ; 初始化响应
+            this.onFunc.Get("PreHandleReq", (*) => (0)).Bind(Req, Res), ; 回调
+            this.HandleRequest.Bind(this, Req, Res),    ; 处理请求
+            this.DefResLine.Bind(this, Req, Res),   ; 默认响应行
+            this.DefResHeader.Bind(this, Req, Res), ; 默认响应头
+            this.DefResBody.Bind(this, Req, Res),   ; 默认响应体
+            this.onFunc.Get("PreSendRes", (*) => (0)).Bind(Req, Res),   ; 回调
+            this.SendResponse.Bind(this, Sk, Req, Res), ; 发送响应
+            this.Ending.Bind(this, Sk, Req, Res),   ; 收尾
+        ]
+        for i in Workflow {
+            switch code := i() {
+                case "": return
+                case 0: continue
+                case -1:
+                    this.unlink(Sk)
+                    return
+                default:
+                    Res.SetErrorRes(Code)
+                    this.SendResponse(Sk, Req, Res)
+                    this.Ending(Sk, Req, Res)
+                    return
+            }
         }
-        if this.onFunc.Has("PreHandleReq") and not this.onFunc["PreHandleReq"](Sk.Req, Sk.Res) {
-            return this.unlink(Sk)
-        }
-        ; 处理业务逻辑
-        if Code := this.HandleRequest(Sk) {  ; 处理请求
-            Sk.Res.SetErrorRes(Code)
-            this.SendResponse(Sk)
-            return Code
-        }
-        return this.SendResponse(Sk)
     }
     ;@region 2.HandleRequest
     ; 处理请求
-    HandleRequest(Sk) {
+    HandleRequest(Req, Res) {
         ; 尝试处理API调用请求
-        if not Code := this.HandleAPIRequest(Sk) {
+        if not Code := this.HandleAPIRequest(Req, Res) {
             return 0
-        } else if this.Web and not Code := this.HandleWebRequest(Sk) { ; 如果启用Web功能，尝试处理Web请求
+        } else if this.Web and not Code := this.HandleWebRequest(Req, Res) { ; 如果启用Web功能，尝试处理Web请求
             return 0
         } else {
             return Code
@@ -443,18 +448,18 @@ class HttpServer extends Socket.Server {
     }
     ;@region 2.HandleAPIRequest
     ; 处理调用请求
-    HandleAPIRequest(Sk) {
+    HandleAPIRequest(Req, Res) {
         ; 检查路由表中是否存在该URL路径
-        if not this.Path.Has(Sk.Req.Url) {    ; 路由表中没有此路径，返回
+        if not this.Path.Has(Req.Url) {    ; 路由表中没有此路径，返回
             return 404
         }
-        this.Path[Sk.Req.Url](Sk.Req, Sk.Res) ; 执行请求
+        this.Path[Req.Url](Req, Res) ; 执行请求
         return 0
     }
     ;@region 2.HandleWebRequest
     ; 处理Web请求
-    HandleWebRequest(Sk) {
-        Path := Sk.Req.Url
+    HandleWebRequest(Req, Res) {
+        Path := Req.Url
         if Path ~= "^\/\.\.[\\\/]" {
             return 404
         }
@@ -464,56 +469,70 @@ class HttpServer extends Socket.Server {
         if not RASHNDOCTL or InStr(RASHNDOCTL, "D") or InStr(Path, this.Root) != 1 {
             return 404
         }
-        Sk.Res.SetBodyFile(Path)
+        Res.SetBodyFile(Path)
         return 0
     }
     ;@region 2.SendResponse
     ; 返回响应
-    SendResponse(Sk) {
-        this.DefResLine(Sk)    ; 设置响应行
-        this.DefResHeader(Sk)    ; 设置响应头
-        this.DefResBody(Sk)    ; 设置响应体
-        if this.onFunc.Has("PreSendRes") and not this.onFunc["PreSendRes"](Sk.Req, Sk.Res) {
-            return this.unlink(Sk)
-        }
+    SendResponse(Sk, Req, Res) {
         ; 根据body类型发送响应
-        if Type(Sk.Res.Body) = "Buffer" {
-            Sk.SendText(Sk.Res.BuildResponse())
-            Sk.Send(Sk.Res.Body)
+        if Type(Res.Body) = "Buffer" {
+            Sk.SendText(Res.BuildResponse())
+            Sk.Send(Res.Body)
         } else {
-            Sk.SendText(Sk.Res.BuildResponse())
+            Sk.SendText(Res.BuildResponse())
         }
+        return 0
+    }
+    ;@region 2.Ending
+    ; 收尾
+    Ending(Sk, Req, Res) {
         ; 调试输出
-        if Sk.Req.Url = "/debug" or Sk.Req.Method = "TRACE" {
-            this.DeBug(Sk)
+        if Req.Url = "/debug" or Req.Method = "TRACE" {
+            this.DeBug(Req, Res)
         }
-        if Sk.Req.Headers.Get("Connection", 0) = "close" {
+        if Req.Headers.Get("Connection", 0) = "close" {
             this.unlink(Sk)
         }
-        this.Clear(Sk)
+        this.Clear(Req, Res)
+        return 0
     }
     ;@region 1.DefResLine
     ; 设置默认响应行
-    DefResLine(Sk) {
-        return
+    DefResLine(Req, Res) {
+        return 0
     }
     ;@region 2.DefResHeader
     ; 设置默认响应头
-    DefResHeader(Sk) {
-        Sk.Res.Headers["Content-Location"] := Http.UrlEncode(Sk.Req.Url)
-        Sk.Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
-        Sk.Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
-        if Sk.Req.Headers.Get("Connection", 0) = "close" {
-            Sk.Res.Headers["Connection"] := "close"
+    DefResHeader(Req, Res) {
+        Res.Headers["Content-Location"] := Http.UrlEncode(Req.Url)
+        Res.Headers["Server"] := "AutoHotkey/" A_AhkVersion
+        Res.Headers["Date"] := FormatTime(A_NowUTC " L0x0409", "ddd, d MMM yyyy HH:mm:ss 'GMT'")
+        if Req.Headers.Get("Connection", 0) = "close" {
+            Res.Headers["Connection"] := "close"
         }
+        return 0
     }
     ;@region 2.DefResBody
     ; 设置默认响应体
-    DefResBody(Sk) {
-        switch Sk.Req.Method {
-            case "HEAD": Sk.Res.Body := ""
-            case "TRACE": Sk.Res.SetBodyText(Sk.Req.Request)
+    DefResBody(Req, Res) {
+        switch Req.Method {
+            case "HEAD": Res.Body := ""
+            case "TRACE": Res.SetBodyText(Req.Request)
         }
+        return 0
+    }
+    ;@region 2.Clear
+    ; 清理
+    Clear(Req, Res) {
+        Req.__New()
+        Res.__New()
+    }
+    ;@region 2.unlink
+    ; 断开连接
+    unlink(Sk) {
+        ObjRelease(ObjPtr(Sk))
+        Sk.__Delete()
     }
     ;@region 2.LoadMimeType
     ; 设置mime类型
@@ -539,23 +558,11 @@ class HttpServer extends Socket.Server {
         }
         this.Path := Paths
     }
-    ;@region 2.Clear
-    ; 清理
-    Clear(Sk) {
-        Sk.Req.__New()
-        Sk.Res.__New()
-    }
-    ;@region 2.unlink
-    ; 断开连接
-    unlink(Sk) {
-        ObjRelease(ObjPtr(Sk))
-        Sk.__Delete()
-    }
     ;@region 2.DeBug
-    DeBug(Sk) {
-        OutputDebug Sk.Req.Request
+    DeBug(Req, Res) {
+        OutputDebug Req.Request
         OutputDebug "`n----------------------------------`n"
-        OutputDebug Sk.Res.Response
+        OutputDebug Res.Response
         OutputDebug "`n=====================================================================`n"
     }
 }
