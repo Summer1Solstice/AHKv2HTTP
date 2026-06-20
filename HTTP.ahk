@@ -429,22 +429,21 @@ class HttpServer extends Socket.Server {
             for i in Workflow {
                 switch code := i() {
                     case 0: continue
-                    case "": throw WORKFLOW_RETURN_EMPTY
+                    case "":
+                        Log.Error(WORKFLOW_RETURN_EMPTY)
+                        this.SendErrResponse(Sk, 500)
+                        return
                     case -1:
                         this.unlink(Sk)
                         return
                     default:
-                        Res.SetErrorRes(Code)
-                        this.SendResponse(Sk, Req, Res)
-                        this.Ending(Sk, Req, Res)
+                        this.SendErrResponse(Sk, code)
                         return
                 }
             } else if code = -1 {   ; 断开
                 this.unlink(Sk)
             } else {    ; 错误
-                Res.SetErrorRes(Code)
-                this.SendResponse(Sk, Req, Res)
-                this.Ending(Sk, Req, Res)
+                this.SendErrResponse(Sk, code)
                 return
             }
         }
@@ -498,6 +497,13 @@ class HttpServer extends Socket.Server {
             Sk.SendText(Res.BuildResponse())
         }
         return 0
+    }
+    ;@region 2.SendErrResponse
+    ; 发送错误响应
+    SendErrResponse(Sk, Code) {
+        Sk.Res.SetErrorRes(Code)
+        this.SendResponse(Sk, Sk.Req, Sk.Res)
+        this.Ending(Sk, Sk.Req, Sk.Res)
     }
     ;@region 2.Ending
     ; 收尾
