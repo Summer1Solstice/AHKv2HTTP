@@ -43,7 +43,7 @@ class Log {
     static Write(LogLevel, Text, Fn) {
         Date := FormatTime(, "yyyy-MM-dd")
         Time := FormatTime(, "HH:mm:ss")
-        Text := Fn ? Format("[{1}] {2}", Fn, Text) : Text
+        Text := Fn ? Format("[{1}] {2}", StrReplace(Fn, "Prototype."), Text) : Text
         Log := Format("{1} {2:-5} - {3}`n", Time, logLevel, Text)
         try {
             FileAppend(Log, "*")
@@ -434,14 +434,13 @@ class HttpServer extends Socket.Server {
                         this.SendErrResponse(Sk, 500)
                         return
                     case -1:
-                        this.unlink(Sk)
-                        return
+                        return this.unlink(Sk)
                     default:
                         this.SendErrResponse(Sk, code)
                         return
                 }
             } else if code = -1 {   ; 断开
-                this.unlink(Sk)
+                return this.unlink(Sk)
             } else {    ; 错误
                 this.SendErrResponse(Sk, code)
                 return
@@ -512,10 +511,11 @@ class HttpServer extends Socket.Server {
         if Req.Url = "/debug" or Req.Method = "TRACE" {
             this.DeBug(Req, Res)
         }
-        if Req.Headers.Get("Connection", 0) = "close" {
+        Connection := Req.Headers.Get("Connection", 0)
+        this.Clear(Req, Res)
+        if Connection = "close" {
             this.unlink(Sk)
         }
-        this.Clear(Req, Res)
         return 0
     }
     ;@region 1.DefResLine
@@ -552,8 +552,10 @@ class HttpServer extends Socket.Server {
     ;@region 2.unlink
     ; 断开连接
     unlink(Sk) {
+        if Sk.ptr != -1 {
         ObjRelease(ObjPtr(Sk))
         Sk.__Delete()
+        }
     }
     ;@region 2.LoadMimeType
     ; 设置mime类型
