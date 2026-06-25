@@ -353,6 +353,7 @@ class Response {
         BuffObj := FileRead(FilePath, "Raw")
         this.Headers["Content-Length"] := BuffObj.size
         SplitPath(FilePath, , , &ext)
+        ; Content-Type
         CT := Http.MimeType.Has(ext) ? Http.MimeType[ext] : "text/plain"
         if InStr(CT, "text/") {
             CT .= Encoding ? "; charset=" Encoding : ""
@@ -553,8 +554,8 @@ class HttpServer extends Socket.Server {
     ; 断开连接
     unlink(Sk) {
         if Sk.ptr != -1 {
+            Sk.__Delete()
         ObjRelease(ObjPtr(Sk))
-        Sk.__Delete()
         }
     }
     ;@region 2.LoadMimeType
