@@ -1,7 +1,7 @@
 #RequiRes AutoHotkey v2.0
 /************************************************************************
- * @date 2026/06/19
- * @version 4.0.0
+ * @date 2026/06/21
+ * @version 4.0.1
  ***********************************************************************/
 #Include <thqby\Socket> ; https://github.com/thqby/ahk2_lib/blob/master/Socket.ahk
 
@@ -117,12 +117,12 @@ class Http {
     ; 响应预设
     static ResCode := Map(
         ; 3xx 重定向状态码
-        301, { sCode: 301, sMsg: 'Moved Permanently', Body: unset }, ; 请求的资源已永久移动到新位置
-        302, { sCode: 302, sMsg: 'Found', Body: unset }, ; 请求的资源临时从不同的URI响应请求
-        303, { sCode: 303, sMsg: 'See Other', Body: unset }, ; 请求的资源可以在另一个URI找到，应使用GET方法获取
-        304, { sCode: 304, sMsg: 'Not Modified', Body: unset }, ; 资源未修改，可使用缓存版本
-        307, { sCode: 307, sMsg: 'Temporary Redirect', Body: unset }, ; 请求的资源临时从不同的URI响应请求，应保持原请求方法
-        308, { sCode: 308, sMsg: 'Permanent Redirect', Body: unset }, ; 请求的资源已永久移动到新位置，应保持原请求方法
+        301, { sCode: 301, sMsg: 'Moved Permanently', Body: "" }, ; 请求的资源已永久移动到新位置
+        302, { sCode: 302, sMsg: 'Found', Body: "" }, ; 请求的资源临时从不同的URI响应请求
+        303, { sCode: 303, sMsg: 'See Other', Body: "" }, ; 请求的资源可以在另一个URI找到，应使用GET方法获取
+        304, { sCode: 304, sMsg: 'Not Modified', Body: "" }, ; 资源未修改，可使用缓存版本
+        307, { sCode: 307, sMsg: 'Temporary Redirect', Body: "" }, ; 请求的资源临时从不同的URI响应请求，应保持原请求方法
+        308, { sCode: 308, sMsg: 'Permanent Redirect', Body: "" }, ; 请求的资源已永久移动到新位置，应保持原请求方法
         ; 4xx 客户端错误状态码
         400, { sCode: 400, sMsg: 'Bad Request', Body: "400 Bad Request" }, ; 请求语法错误或参数有误，服务器无法理解
         403, { sCode: 403, sMsg: 'Forbidden', Body: "403 Forbidden" }, ; 服务器理解请求但拒绝执行，通常是因为权限不足
